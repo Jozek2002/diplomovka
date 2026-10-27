@@ -8,7 +8,11 @@ import {
   View,
 } from 'react-native';
 
-const API_URL = 'http://127.0.0.1:3000';
+const HTTP_URL = 'http://127.0.0.1:3000';
+const WS_URL = 'ws://127.0.0.1:3000/ws';
+
+type Protocol = 'HTTP/REST' | 'WebSocket';
+type Status = 'disconnected' | 'connecting' | 'connected';
 
 type Telemetry = {
   deviceId: string;
@@ -23,15 +27,20 @@ type OutputState = {
   outputEnabled: boolean;
 };
 
+type ServerMessage =
+  | { type: 'telemetry'; data: Telemetry }
+  | { type: 'output'; data: OutputState }
+  | { type: 'error'; message: string };
+
 async function requestJson<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  const timer = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const response = await fetch(`${API_URL}${path}`, {
+    const response = await fetch(`${HTTP_URL}${path}`, {
       ...options,
       signal: controller.signal,
     });
@@ -42,7 +51,7 @@ async function requestJson<T>(
 
     return (await response.json()) as T;
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(timer);
   }
 }
 
@@ -51,32 +60,79 @@ function errorMessage(error: unknown): string {
     return 'Server neodpovedal do 5 sekúnd.';
   }
 
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return 'Nastala neznáma chyba komunikácie.';
+  return error instanceof Error
+    ? error.message
+    : 'Neznáma chyba komunikácie.';
 }
 
 export default function HomeScreen() {
-  const [connected, setConnected] = useState(false);
-  const [connecting, setConnecting] = useState(false);
-  const [outputBusy, setOutputBusy] = useState(false);
-  const [outputEnabled, setOutputEnabled] = useState(false);
+  const [protocol, setProtocol] = useState<Protocol>('HTTP/REST');
+  const [status, setStatus] = useState<Status>('disconnected');
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
+  const [outputEnabled, setOutputEnabled] = useState(false);
+  const [outputBusy, setOutputBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Rozlišuje aktuálne pripojenie od už ukončených požiadaviek.
   const session = useRef(0);
+  const socketRef = useRef<WebSocket | null>(null);
+
+  const connectTimer = useRef<
+    ReturnType<typeof setTimeout> | null
+  >(null);
+
+  const outputTimer = useRef<
+    ReturnType<typeof setTimeout> | null
+  >(null);
+
+  const connected = status === 'connected';
+  const connecting = status === 'connecting';
+
+  function clearTimers() {
+    if (connectTimer.current !== null) {
+      clearTimeout(connectTimer.current);
+      connectTimer.current = null;
+    }
+
+    if (outputTimer.current !== null) {
+      clearTimeout(outputTimer.current);
+      outputTimer.current = null;
+    }
+  }
+
+  function releaseResources() {
+    session.current += 1;
+    clearTimers();
+
+    const socket = socketRef.current;
+    socketRef.current = null;
+
+    if (socket !== null) {
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.onclose = null;
+      socket.close();
+    }
+  }
+
+  function stopConnection(message: string | null = null) {
+    releaseResources();
+    setStatus('disconnected');
+    setTelemetry(null);
+    setOutputEnabled(false);
+    setOutputBusy(false);
+    setError(message);
+  }
 
   useEffect(() => {
     return () => {
-      session.current += 1;
+      releaseResources();
     };
   }, []);
 
+  // HTTP polling: ďalšia požiadavka sa plánuje až po odpovedi.
   useEffect(() => {
-    if (!connected) {
+    if (status !== 'connected' || protocol !== 'HTTP/REST') {
       return;
     }
 
@@ -84,7 +140,7 @@ export default function HomeScreen() {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
-    async function pollTelemetry() {
+    async function poll() {
       try {
         const data = await requestJson<Telemetry>('/telemetry');
 
@@ -93,24 +149,15 @@ export default function HomeScreen() {
         }
 
         setTelemetry(data);
+        timer = setTimeout(poll, 1000);
       } catch (requestError) {
-        if (cancelled || session.current !== currentSession) {
-          return;
+        if (!cancelled && session.current === currentSession) {
+          stopConnection(errorMessage(requestError));
         }
-
-        session.current += 1;
-        setConnected(false);
-        setTelemetry(null);
-        setError(errorMessage(requestError));
-        return;
-      }
-
-      if (!cancelled && session.current === currentSession) {
-        timer = setTimeout(pollTelemetry, 1000);
       }
     }
 
-    timer = setTimeout(pollTelemetry, 1000);
+    timer = setTimeout(poll, 1000);
 
     return () => {
       cancelled = true;
@@ -119,13 +166,16 @@ export default function HomeScreen() {
         clearTimeout(timer);
       }
     };
-  }, [connected]);
+  }, [status, protocol]);
 
-  async function connect() {
-    const currentSession = ++session.current;
+  async function connectHttp() {
+    releaseResources();
+    const currentSession = session.current;
 
-    setConnecting(true);
+    setStatus('connecting');
     setError(null);
+    setTelemetry(null);
+    setOutputBusy(false);
 
     try {
       const [data, output] = await Promise.all([
@@ -139,31 +189,156 @@ export default function HomeScreen() {
 
       setTelemetry(data);
       setOutputEnabled(output.outputEnabled);
-      setConnected(true);
+      setStatus('connected');
     } catch (requestError) {
       if (session.current === currentSession) {
-        setError(errorMessage(requestError));
-      }
-    } finally {
-      if (session.current === currentSession) {
-        setConnecting(false);
+        stopConnection(errorMessage(requestError));
       }
     }
   }
 
-  function disconnect() {
-    session.current += 1;
-    setConnected(false);
-    setTelemetry(null);
+  function connectWebSocket() {
+    releaseResources();
+    const currentSession = session.current;
+
+    setStatus('connecting');
     setError(null);
+    setTelemetry(null);
     setOutputBusy(false);
+
+    let receivedTelemetry = false;
+    let receivedOutput = false;
+
+    try {
+      const socket = new WebSocket(WS_URL);
+      socketRef.current = socket;
+
+      connectTimer.current = setTimeout(() => {
+        if (session.current === currentSession) {
+          stopConnection(
+            'WebSocket neposlal úvodný stav do 5 sekúnd.'
+          );
+        }
+      }, 5000);
+
+      function markReady() {
+        if (receivedTelemetry && receivedOutput) {
+          if (connectTimer.current !== null) {
+            clearTimeout(connectTimer.current);
+            connectTimer.current = null;
+          }
+
+          setStatus('connected');
+        }
+      }
+
+      socket.onmessage = (event) => {
+        if (session.current !== currentSession) {
+          return;
+        }
+
+        try {
+          const message = JSON.parse(
+            String(event.data)
+          ) as ServerMessage;
+
+          switch (message.type) {
+            case 'telemetry':
+              setTelemetry(message.data);
+              receivedTelemetry = true;
+              markReady();
+              break;
+
+            case 'output':
+              setOutputEnabled(message.data.outputEnabled);
+              receivedOutput = true;
+
+              if (outputTimer.current !== null) {
+                clearTimeout(outputTimer.current);
+                outputTimer.current = null;
+              }
+
+              setOutputBusy(false);
+              markReady();
+              break;
+
+            case 'error':
+              stopConnection(message.message);
+              break;
+
+            default:
+              stopConnection('Server poslal neznámy typ správy.');
+          }
+        } catch {
+          stopConnection('Nepodarilo sa spracovať správu servera.');
+        }
+      };
+
+      socket.onerror = () => {
+        if (session.current === currentSession) {
+          stopConnection(
+            'WebSocket spojenie zlyhalo. Skontroluj simulátor.'
+          );
+        }
+      };
+
+      socket.onclose = () => {
+        if (session.current === currentSession) {
+          stopConnection('Server ukončil WebSocket spojenie.');
+        }
+      };
+    } catch (connectionError) {
+      stopConnection(errorMessage(connectionError));
+    }
+  }
+
+  function connect() {
+    if (protocol === 'HTTP/REST') {
+      void connectHttp();
+    } else {
+      connectWebSocket();
+    }
   }
 
   async function changeOutput(nextValue: boolean) {
-    const currentSession = session.current;
+    if (!connected || outputBusy) {
+      return;
+    }
 
+    const currentSession = session.current;
     setOutputBusy(true);
     setError(null);
+
+    if (protocol === 'WebSocket') {
+      const socket = socketRef.current;
+
+      if (socket === null || socket.readyState !== WebSocket.OPEN) {
+        stopConnection('WebSocket spojenie nie je otvorené.');
+        return;
+      }
+
+      try {
+        outputTimer.current = setTimeout(() => {
+          if (session.current === currentSession) {
+            stopConnection(
+              'Server nepotvrdil výstup. Jeho stav je neistý; ' +
+                'znovu sa pripoj na načítanie aktuálneho stavu.'
+            );
+          }
+        }, 5000);
+
+        socket.send(
+          JSON.stringify({
+            type: 'setOutput',
+            outputEnabled: nextValue,
+          })
+        );
+      } catch (sendError) {
+        stopConnection(errorMessage(sendError));
+      }
+
+      return;
+    }
 
     try {
       const result = await requestJson<OutputState>('/output', {
@@ -178,18 +353,15 @@ export default function HomeScreen() {
 
       if (session.current === currentSession) {
         setOutputEnabled(result.outputEnabled);
+        setOutputBusy(false);
       }
     } catch (requestError) {
       if (session.current === currentSession) {
-        setError(
-          `Zmenu výstupu sa nepodarilo potvrdiť. ${errorMessage(
-            requestError
-          )} Odpoj sa a znovu pripoj na načítanie aktuálneho stavu.`
+        stopConnection(
+          'Zmenu výstupu sa nepodarilo potvrdiť. ' +
+            errorMessage(requestError) +
+            ' Znovu sa pripoj na načítanie aktuálneho stavu.'
         );
-      }
-    } finally {
-      if (session.current === currentSession) {
-        setOutputBusy(false);
       }
     }
   }
@@ -200,7 +372,6 @@ export default function HomeScreen() {
       contentContainerStyle={styles.content}
     >
       <Text style={styles.title}>IoT Monitor</Text>
-
       <Text style={styles.subtitle}>
         Riadenie a telemetria vo Wi-Fi sieti
       </Text>
@@ -208,7 +379,7 @@ export default function HomeScreen() {
       <View style={styles.notice}>
         <Text style={styles.noticeTitle}>SIMULOVANÝ UZOL</Text>
         <Text style={styles.noticeText}>
-          HTTP komunikácia je skutočná. Hodnoty však generuje
+          Komunikácia používa vybraný protokol. Hodnoty generuje
           simulátor na počítači, nie ESP32.
         </Text>
       </View>
@@ -217,26 +388,48 @@ export default function HomeScreen() {
         <Text style={styles.heading}>Komunikačný protokol</Text>
 
         <View style={styles.protocols}>
-          <View style={styles.selectedProtocol}>
-            <Text style={styles.selectedProtocolText}>
-              HTTP/REST
-            </Text>
-          </View>
+          {(['HTTP/REST', 'WebSocket'] as Protocol[]).map(
+            (item) => (
+              <Pressable
+                key={item}
+                accessibilityRole="button"
+                accessibilityState={{
+                  selected: protocol === item,
+                  disabled: status !== 'disconnected',
+                }}
+                disabled={status !== 'disconnected'}
+                onPress={() => {
+                  setProtocol(item);
+                  setError(null);
+                }}
+                style={[
+                  styles.protocol,
+                  protocol === item && styles.selectedProtocol,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.protocolText,
+                    protocol === item && styles.selectedText,
+                  ]}
+                >
+                  {item}
+                </Text>
+              </Pressable>
+            )
+          )}
 
-          <View style={styles.pendingProtocol}>
-            <Text style={styles.pendingProtocolText}>
-              WebSocket — neskôr
-            </Text>
-          </View>
-
-          <View style={styles.pendingProtocol}>
-            <Text style={styles.pendingProtocolText}>
-              MQTT — neskôr
-            </Text>
+          <View style={[styles.protocol, styles.disabled]}>
+            <Text style={styles.protocolText}>MQTT — neskôr</Text>
           </View>
         </View>
 
-        <Text style={styles.hint}>Server: {API_URL}</Text>
+        <Text style={styles.hint}>
+          {protocol === 'HTTP/REST' ? HTTP_URL : WS_URL}
+        </Text>
+        <Text style={styles.hint}>
+          Pred zmenou protokolu sa odpoj.
+        </Text>
       </View>
 
       <View style={styles.card}>
@@ -246,29 +439,33 @@ export default function HomeScreen() {
           {connecting
             ? 'Pripájam…'
             : connected
-              ? 'HTTP komunikácia aktívna'
+              ? `${protocol} — aktívne`
               : 'Odpojené'}
         </Text>
 
         <Text style={styles.hint}>
-          {connected
-            ? 'Aplikácia pravidelne načítava telemetriu zo simulátora.'
-            : 'Pripojenie overí telemetriu a načíta stav výstupu.'}
+          {protocol === 'HTTP/REST'
+            ? 'Aplikácia pravidelne žiada telemetriu cez HTTP.'
+            : 'Server posiela telemetriu cez WebSocket.'}
         </Text>
 
         <Pressable
           accessibilityRole="button"
-          disabled={connecting || outputBusy}
-          onPress={connected ? disconnect : connect}
+          disabled={outputBusy}
+          onPress={
+            status === 'disconnected'
+              ? connect
+              : () => stopConnection()
+          }
           style={[
             styles.button,
-            connected && styles.disconnectButton,
-            (connecting || outputBusy) && styles.disabled,
+            status !== 'disconnected' && styles.disconnectButton,
+            outputBusy && styles.disabled,
           ]}
         >
           <Text style={styles.buttonText}>
             {connecting
-              ? 'Pripájam…'
+              ? 'Zrušiť pripájanie'
               : connected
                 ? 'Odpojiť'
                 : 'Pripojiť k simulátoru'}
@@ -288,10 +485,10 @@ export default function HomeScreen() {
 
         <View style={styles.row}>
           <View style={styles.outputLabel}>
-            <Text style={styles.label}>Výstup simulátora</Text>
+            <Text style={styles.label}>Simulovaný výstup</Text>
             <Text style={styles.hint}>
               {!connected
-                ? 'Aktuálny stav nie je načítaný'
+                ? 'Stav nie je načítaný'
                 : outputBusy
                   ? 'Čakám na potvrdenie…'
                   : outputEnabled
@@ -301,16 +498,16 @@ export default function HomeScreen() {
           </View>
 
           <Switch
-            accessibilityLabel="Výstup simulátora"
+            accessibilityLabel="Simulovaný výstup"
             value={connected && outputEnabled}
-            onValueChange={changeOutput}
             disabled={!connected || outputBusy}
+            onValueChange={changeOutput}
           />
         </View>
 
         <Text style={styles.hint}>
-          Stav sa zmení až po odpovedi servera. Odpojenie aplikácie
-          nemení výstup na serveri.
+          Vypnutie výstupu nezastaví telemetriu. Odpojenie
+          aplikácie nemení stav výstupu na serveri.
         </Text>
       </View>
 
@@ -358,8 +555,8 @@ export default function HomeScreen() {
             </View>
 
             <Text style={styles.hint}>
-              Ďalšie načítanie sa plánuje 1 sekundu po dokončení
-              predchádzajúceho. Zatiaľ nemeriame latenciu ani RTT.
+              Toto zatiaľ nie je meranie latencie, RTT ani
+              spoľahlivosti protokolu.
             </Text>
           </>
         ) : (
@@ -425,24 +622,21 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  selectedProtocol: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: '#2563eb',
-  },
-  selectedProtocolText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  pendingProtocol: {
+  protocol: {
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 10,
     backgroundColor: '#e2e8f0',
   },
-  pendingProtocolText: {
-    color: '#64748b',
+  selectedProtocol: {
+    backgroundColor: '#2563eb',
+  },
+  protocolText: {
+    color: '#334155',
+    fontWeight: '600',
+  },
+  selectedText: {
+    color: '#ffffff',
   },
   value: {
     fontSize: 20,
