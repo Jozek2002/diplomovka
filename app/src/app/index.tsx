@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -8,55 +8,190 @@ import {
   View,
 } from 'react-native';
 
-type Protocol = 'HTTP/REST' | 'WebSocket' | 'MQTT';
+const API_URL = 'http://127.0.0.1:3000';
 
 type Telemetry = {
+  deviceId: string;
+  simulated: boolean;
   sequence: number;
   temperature: number;
   humidity: number;
   generatedAt: number;
 };
 
-const protocols: Protocol[] = ['HTTP/REST', 'WebSocket', 'MQTT'];
+type OutputState = {
+  outputEnabled: boolean;
+};
 
-function generateTelemetry(sequence: number): Telemetry {
-  return {
-    sequence,
-    temperature: 22 + Math.random() * 4,
-    humidity: 40 + Math.random() * 15,
-    generatedAt: Date.now(),
-  };
+async function requestJson<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server vrátil HTTP ${response.status}.`);
+    }
+
+    return (await response.json()) as T;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error && error.name === 'AbortError') {
+    return 'Server neodpovedal do 5 sekúnd.';
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Nastala neznáma chyba komunikácie.';
 }
 
 export default function HomeScreen() {
-  const [protocol, setProtocol] = useState<Protocol>('HTTP/REST');
   const [connected, setConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [outputBusy, setOutputBusy] = useState(false);
   const [outputEnabled, setOutputEnabled] = useState(false);
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Rozlišuje aktuálne pripojenie od už ukončených požiadaviek.
+  const session = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      session.current += 1;
+    };
+  }, []);
 
   useEffect(() => {
     if (!connected) {
       return;
     }
 
-    let sequence = 1;
+    const currentSession = session.current;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-    setTelemetry(generateTelemetry(sequence));
+    async function pollTelemetry() {
+      try {
+        const data = await requestJson<Telemetry>('/telemetry');
 
-    const timer = setInterval(() => {
-      sequence += 1;
-      setTelemetry(generateTelemetry(sequence));
-    }, 1000);
+        if (cancelled || session.current !== currentSession) {
+          return;
+        }
+
+        setTelemetry(data);
+      } catch (requestError) {
+        if (cancelled || session.current !== currentSession) {
+          return;
+        }
+
+        session.current += 1;
+        setConnected(false);
+        setTelemetry(null);
+        setError(errorMessage(requestError));
+        return;
+      }
+
+      if (!cancelled && session.current === currentSession) {
+        timer = setTimeout(pollTelemetry, 1000);
+      }
+    }
+
+    timer = setTimeout(pollTelemetry, 1000);
 
     return () => {
-      clearInterval(timer);
+      cancelled = true;
+
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
     };
   }, [connected]);
 
-  function toggleConnection() {
-    setOutputEnabled(false);
+  async function connect() {
+    const currentSession = ++session.current;
+
+    setConnecting(true);
+    setError(null);
+
+    try {
+      const [data, output] = await Promise.all([
+        requestJson<Telemetry>('/telemetry'),
+        requestJson<OutputState>('/output'),
+      ]);
+
+      if (session.current !== currentSession) {
+        return;
+      }
+
+      setTelemetry(data);
+      setOutputEnabled(output.outputEnabled);
+      setConnected(true);
+    } catch (requestError) {
+      if (session.current === currentSession) {
+        setError(errorMessage(requestError));
+      }
+    } finally {
+      if (session.current === currentSession) {
+        setConnecting(false);
+      }
+    }
+  }
+
+  function disconnect() {
+    session.current += 1;
+    setConnected(false);
     setTelemetry(null);
-    setConnected((previous) => !previous);
+    setError(null);
+    setOutputBusy(false);
+  }
+
+  async function changeOutput(nextValue: boolean) {
+    const currentSession = session.current;
+
+    setOutputBusy(true);
+    setError(null);
+
+    try {
+      const result = await requestJson<OutputState>('/output', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          outputEnabled: nextValue,
+        }),
+      });
+
+      if (session.current === currentSession) {
+        setOutputEnabled(result.outputEnabled);
+      }
+    } catch (requestError) {
+      if (session.current === currentSession) {
+        setError(
+          `Zmenu výstupu sa nepodarilo potvrdiť. ${errorMessage(
+            requestError
+          )} Odpoj sa a znovu pripoj na načítanie aktuálneho stavu.`
+        );
+      }
+    } finally {
+      if (session.current === currentSession) {
+        setOutputBusy(false);
+      }
+    }
   }
 
   return (
@@ -71,10 +206,10 @@ export default function HomeScreen() {
       </Text>
 
       <View style={styles.notice}>
-        <Text style={styles.noticeTitle}>DEMO REŽIM</Text>
+        <Text style={styles.noticeTitle}>SIMULOVANÝ UZOL</Text>
         <Text style={styles.noticeText}>
-          Dáta sa generujú priamo v aplikácii. Nejde o merania
-          z ESP32 ani o skutočnú sieťovú komunikáciu.
+          HTTP komunikácia je skutočná. Hodnoty však generuje
+          simulátor na počítači, nie ESP32.
         </Text>
       </View>
 
@@ -82,103 +217,114 @@ export default function HomeScreen() {
         <Text style={styles.heading}>Komunikačný protokol</Text>
 
         <View style={styles.protocols}>
-          {protocols.map((item) => (
-            <Pressable
-              key={item}
-              accessibilityRole="button"
-              accessibilityState={{
-                selected: protocol === item,
-                disabled: connected,
-              }}
-              disabled={connected}
-              onPress={() => setProtocol(item)}
-              style={[
-                styles.protocol,
-                protocol === item && styles.selectedProtocol,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.protocolText,
-                  protocol === item && styles.selectedProtocolText,
-                ]}
-              >
-                {item}
-              </Text>
-            </Pressable>
-          ))}
+          <View style={styles.selectedProtocol}>
+            <Text style={styles.selectedProtocolText}>
+              HTTP/REST
+            </Text>
+          </View>
+
+          <View style={styles.pendingProtocol}>
+            <Text style={styles.pendingProtocolText}>
+              WebSocket — neskôr
+            </Text>
+          </View>
+
+          <View style={styles.pendingProtocol}>
+            <Text style={styles.pendingProtocolText}>
+              MQTT — neskôr
+            </Text>
+          </View>
         </View>
 
-        <Text style={styles.hint}>
-          Pred zmenou protokolu ukonči demo pripojenie.
-          V demo režime je správanie pre všetky protokoly rovnaké.
-        </Text>
+        <Text style={styles.hint}>Server: {API_URL}</Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.heading}>Pripojenie</Text>
 
-        <View style={styles.statusRow}>
-          <View
-            style={[
-              styles.statusDot,
-              connected && styles.connectedDot,
-            ]}
-          />
-          <Text style={styles.value}>
-            {connected ? 'Demo pripojené' : 'Odpojené'}
-          </Text>
-        </View>
+        <Text style={styles.value}>
+          {connecting
+            ? 'Pripájam…'
+            : connected
+              ? 'HTTP komunikácia aktívna'
+              : 'Odpojené'}
+        </Text>
 
         <Text style={styles.hint}>
-          Vybraný protokol: {protocol}
+          {connected
+            ? 'Aplikácia pravidelne načítava telemetriu zo simulátora.'
+            : 'Pripojenie overí telemetriu a načíta stav výstupu.'}
         </Text>
 
         <Pressable
           accessibilityRole="button"
-          onPress={toggleConnection}
+          disabled={connecting || outputBusy}
+          onPress={connected ? disconnect : connect}
           style={[
             styles.button,
             connected && styles.disconnectButton,
+            (connecting || outputBusy) && styles.disabled,
           ]}
         >
           <Text style={styles.buttonText}>
-            {connected ? 'Odpojiť demo' : 'Pripojiť demo'}
+            {connecting
+              ? 'Pripájam…'
+              : connected
+                ? 'Odpojiť'
+                : 'Pripojiť k simulátoru'}
           </Text>
         </Pressable>
       </View>
+
+      {error !== null && (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorTitle}>Chyba komunikácie</Text>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.heading}>Ovládanie uzla</Text>
 
         <View style={styles.row}>
           <View style={styles.outputLabel}>
-            <Text style={styles.label}>Simulovaný výstup</Text>
+            <Text style={styles.label}>Výstup simulátora</Text>
             <Text style={styles.hint}>
-              {outputEnabled ? 'Zapnutý' : 'Vypnutý'}
+              {!connected
+                ? 'Aktuálny stav nie je načítaný'
+                : outputBusy
+                  ? 'Čakám na potvrdenie…'
+                  : outputEnabled
+                    ? 'Zapnutý'
+                    : 'Vypnutý'}
             </Text>
           </View>
 
           <Switch
-            accessibilityLabel="Simulovaný výstup"
-            value={outputEnabled}
-            onValueChange={setOutputEnabled}
-            disabled={!connected}
+            accessibilityLabel="Výstup simulátora"
+            value={connected && outputEnabled}
+            onValueChange={changeOutput}
+            disabled={!connected || outputBusy}
           />
         </View>
 
         <Text style={styles.hint}>
-          Prepínač zatiaľ mení iba stav v aplikácii.
+          Stav sa zmení až po odpovedi servera. Odpojenie aplikácie
+          nemení výstup na serveri.
         </Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.heading}>
-          Telemetria — simulované dáta
+          Telemetria zo simulátora
         </Text>
 
         {telemetry ? (
           <>
+            <Text style={styles.hint}>
+              Uzol: {telemetry.deviceId}
+            </Text>
+
             <View style={styles.metrics}>
               <View style={styles.metric}>
                 <Text style={styles.hint}>Teplota</Text>
@@ -195,17 +341,15 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <View style={styles.divider} />
-
             <View style={styles.row}>
-              <Text style={styles.hint}>Číslo vzorky</Text>
+              <Text style={styles.hint}>Číslo vzorky na serveri</Text>
               <Text style={styles.detail}>
                 {telemetry.sequence}
               </Text>
             </View>
 
             <View style={styles.row}>
-              <Text style={styles.hint}>Vygenerované o</Text>
+              <Text style={styles.hint}>Vygenerované na serveri</Text>
               <Text style={styles.detail}>
                 {new Date(telemetry.generatedAt).toLocaleTimeString(
                   'sk-SK'
@@ -214,18 +358,14 @@ export default function HomeScreen() {
             </View>
 
             <Text style={styles.hint}>
-              Nominálny interval generovania: 1 sekunda.
-              Toto nie je meranie latencie ani RTT.
+              Ďalšie načítanie sa plánuje 1 sekundu po dokončení
+              predchádzajúceho. Zatiaľ nemeriame latenciu ani RTT.
             </Text>
           </>
         ) : (
-          <>
-            <Text style={styles.value}>Zatiaľ bez dát</Text>
-            <Text style={styles.hint}>
-              Stlač „Pripojiť demo“. Aplikácia začne pravidelne
-              generovať ukážkové hodnoty teploty a vlhkosti.
-            </Text>
-          </>
+          <Text style={styles.hint}>
+            Pripoj sa k simulátoru na načítanie dát.
+          </Text>
         )}
       </View>
     </ScrollView>
@@ -285,35 +425,24 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  protocol: {
+  selectedProtocol: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: '#2563eb',
+  },
+  selectedProtocolText: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  pendingProtocol: {
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 10,
     backgroundColor: '#e2e8f0',
   },
-  selectedProtocol: {
-    backgroundColor: '#2563eb',
-  },
-  protocolText: {
-    color: '#334155',
-    fontWeight: '600',
-  },
-  selectedProtocolText: {
-    color: '#ffffff',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#94a3b8',
-  },
-  connectedDot: {
-    backgroundColor: '#16a34a',
+  pendingProtocolText: {
+    color: '#64748b',
   },
   value: {
     fontSize: 20,
@@ -333,6 +462,9 @@ const styles = StyleSheet.create({
   },
   disconnectButton: {
     backgroundColor: '#b91c1c',
+  },
+  disabled: {
+    opacity: 0.5,
   },
   buttonText: {
     color: '#ffffff',
@@ -370,13 +502,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1d4ed8',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
-  },
   detail: {
     fontSize: 14,
     fontWeight: '600',
     color: '#334155',
+  },
+  errorBox: {
+    padding: 14,
+    borderRadius: 10,
+    backgroundColor: '#fee2e2',
+    gap: 4,
+  },
+  errorTitle: {
+    color: '#991b1b',
+    fontWeight: '700',
+  },
+  errorText: {
+    color: '#991b1b',
+    lineHeight: 21,
   },
 });

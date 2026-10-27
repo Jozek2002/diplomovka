@@ -1,0 +1,14 @@
+# Závislosti
+node_modules/
+
+# Expo a webový build
+.expo/
+dist/
+
+# Lokálne nastavenia a tajné údaje
+.env
+.env.*
+!.env.example
+
+# Logy
+*.log
