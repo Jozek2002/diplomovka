@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
 import {
   Platform,
   Pressable,
@@ -32,8 +38,44 @@ import {
   useMonitorInsights,
 } from '@/components/MonitorInsights';
 
+import type {
+  EventFilter,
+  SampleWindow,
+} from '@/components/MonitorInsights';
+
+import { useMonitorTheme } from '@/theme/monitor-theme';
+import type { MonitorColors } from '@/theme/monitor-theme';
+
+type Tab = 'overview' | 'analysis' | 'events' | 'settings';
+
+const tabs: { id: Tab; label: string }[] = [
+  { id: 'overview', label: 'Prehľad' },
+  { id: 'analysis', label: 'Analýza' },
+  { id: 'events', label: 'Udalosti' },
+  { id: 'settings', label: 'Nastavenia' },
+];
+
+const themeOptions = [
+  { value: 'light', label: 'Svetlý' },
+  { value: 'dark', label: 'Tmavý' },
+  { value: 'system', label: 'Systém' },
+] as const;
+
+const monoFont = Platform.select({
+  ios: 'Menlo',
+  android: 'monospace',
+  default: 'monospace',
+});
+
+function numberText(value: number): string {
+  return value.toFixed(1).replace('.', ',');
+}
+
 function errorMessage(error: unknown): string {
-  if (error instanceof Error && error.name === 'AbortError') {
+  if (
+    error instanceof Error &&
+    error.name === 'AbortError'
+  ) {
     return 'Server neodpovedal do 5 sekúnd.';
   }
 
@@ -45,19 +87,53 @@ function errorMessage(error: unknown): string {
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const wideLayout = width >= 1000;
-  const compactLayout = width < 600;
 
-  const [protocol, setProtocol] = useState<Protocol>('HTTP/REST');
-  const [status, setStatus] = useState<Status>('disconnected');
-  const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
+  const {
+    colors,
+    preference,
+    setPreference,
+    isDark,
+  } = useMonitorTheme();
+
+  const styles = useMemo(
+    () => createStyles(colors),
+    [colors]
+  );
+
+  const [tab, setTab] = useState<Tab>('overview');
+
+  const [sampleWindow, setSampleWindow] =
+    useState<SampleWindow>(60);
+
+  const [eventFilter, setEventFilter] =
+    useState<EventFilter>('all');
+
+  const [protocol, setProtocol] =
+    useState<Protocol>('HTTP/REST');
+
+  const [status, setStatus] =
+    useState<Status>('disconnected');
+
+  const [telemetry, setTelemetry] =
+    useState<Telemetry | null>(null);
+
   const [outputEnabled, setOutputEnabled] = useState(false);
   const [outputBusy, setOutputBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const [error, setError] =
+    useState<string | null>(null);
 
   const session = useRef(0);
   const requestCounter = useRef(0);
-  const pendingRequestId = useRef<string | null>(null);
-  const socketRef = useRef<WebSocket | null>(null);
+
+  const pendingRequestId =
+    useRef<string | null>(null);
+
+  const socketRef =
+    useRef<WebSocket | null>(null);
+
+  const scrollRef =
+    useRef<ScrollView | null>(null);
 
   const connectTimer = useRef<
     ReturnType<typeof setTimeout> | null
@@ -71,12 +147,12 @@ export default function HomeScreen() {
   const connecting = status === 'connecting';
 
   const {
-  samples,
-  events,
-  resetHistory,
-  addEvent,
-  clearEvents,
-} = useMonitorInsights(telemetry, connected);
+    samples,
+    events,
+    resetHistory,
+    addEvent,
+    clearEvents,
+  } = useMonitorInsights(telemetry, connected);
 
   function clearTimers() {
     if (connectTimer.current !== null) {
@@ -108,19 +184,19 @@ export default function HomeScreen() {
   }
 
   function stopConnection(message: string | null = null) {
-  releaseResources();
-  setStatus('disconnected');
-  setTelemetry(null);
-  setOutputEnabled(false);
-  setOutputBusy(false);
-  setError(message);
+    releaseResources();
 
-  if (message !== null) {
-    addEvent('error', message);
-  } else {
-    addEvent('info', 'Používateľ ukončil spojenie.');
+    setStatus('disconnected');
+    setTelemetry(null);
+    setOutputEnabled(false);
+    setOutputBusy(false);
+    setError(message);
+
+    addEvent(
+      message === null ? 'info' : 'error',
+      message ?? 'Používateľ ukončil spojenie.'
+    );
   }
-}
 
   useEffect(() => {
     return () => {
@@ -129,26 +205,39 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    if (status !== 'connected' || protocol !== 'HTTP/REST') {
+    if (
+      status !== 'connected' ||
+      protocol !== 'HTTP/REST'
+    ) {
       return;
     }
 
     const currentSession = session.current;
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    let timer:
+      | ReturnType<typeof setTimeout>
+      | undefined;
 
     async function poll() {
       try {
-        const data = await requestJson<Telemetry>('/telemetry');
+        const data =
+          await requestJson<Telemetry>('/telemetry');
 
-        if (cancelled || session.current !== currentSession) {
+        if (
+          cancelled ||
+          session.current !== currentSession
+        ) {
           return;
         }
 
         setTelemetry(data);
         timer = setTimeout(poll, 1000);
       } catch (requestError) {
-        if (!cancelled && session.current === currentSession) {
+        if (
+          !cancelled &&
+          session.current === currentSession
+        ) {
           stopConnection(errorMessage(requestError));
         }
       }
@@ -188,7 +277,11 @@ export default function HomeScreen() {
       setTelemetry(data);
       setOutputEnabled(output.outputEnabled);
       setStatus('connected');
-      addEvent('success', 'HTTP/REST pripojenie pripravené.');
+
+      addEvent(
+        'success',
+        'HTTP/REST pripojenie pripravené.'
+      );
     } catch (requestError) {
       if (session.current === currentSession) {
         stopConnection(errorMessage(requestError));
@@ -246,6 +339,7 @@ export default function HomeScreen() {
           }
 
           pendingRequestId.current = null;
+
           setOutputEnabled(message.data.outputEnabled);
           setOutputBusy(false);
 
@@ -256,7 +350,9 @@ export default function HomeScreen() {
           addEvent(
             'success',
             `WebSocket: server potvrdil ${
-              message.data.outputEnabled ? 'zapnutý' : 'vypnutý'
+              message.data.outputEnabled
+                ? 'zapnutý'
+                : 'vypnutý'
             } výstup. ID: ${message.requestId}`
           );
         },
@@ -273,7 +369,10 @@ export default function HomeScreen() {
 
           setStatus('connected');
 
-          addEvent('success', 'WebSocket spojenie pripravené.');
+          addEvent(
+            'success',
+            'WebSocket spojenie pripravené.'
+          );
         },
 
         onError: (message) => {
@@ -291,20 +390,26 @@ export default function HomeScreen() {
         },
       });
     } catch (connectionError) {
-      stopConnection(errorMessage(connectionError));
+      if (isCurrentSession()) {
+        stopConnection(errorMessage(connectionError));
+      }
     }
   }
 
   function connect() {
-  resetHistory();
-  addEvent('info', `Pripájanie cez ${protocol}.`);
+    resetHistory();
 
-  if (protocol === 'HTTP/REST') {
-    void connectHttp();
-  } else {
-    connectWebSocket();
+    addEvent(
+      'info',
+      `Pripájanie cez ${protocol}.`
+    );
+
+    if (protocol === 'HTTP/REST') {
+      void connectHttp();
+    } else {
+      connectWebSocket();
+    }
   }
-}
 
   async function changeOutput(nextValue: boolean) {
     if (
@@ -324,7 +429,7 @@ export default function HomeScreen() {
       'command',
       `${protocol}: požadované ${
         nextValue ? 'zapnutie' : 'vypnutie'
-    } výstupu.`
+      } výstupu.`
     );
 
     if (protocol === 'WebSocket') {
@@ -334,7 +439,9 @@ export default function HomeScreen() {
         socket === null ||
         socket.readyState !== WebSocket.OPEN
       ) {
-        stopConnection('WebSocket spojenie nie je otvorené.');
+        stopConnection(
+          'WebSocket spojenie nie je otvorené.'
+        );
         return;
       }
 
@@ -374,15 +481,16 @@ export default function HomeScreen() {
     }
 
     try {
-      const result = await requestJson<OutputState>('/output', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          outputEnabled: nextValue,
-        }),
-      });
+      const result =
+        await requestJson<OutputState>('/output', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            outputEnabled: nextValue,
+          }),
+        });
 
       if (session.current === currentSession) {
         setOutputEnabled(result.outputEnabled);
@@ -406,27 +514,55 @@ export default function HomeScreen() {
     }
   }
 
+  function selectTab(value: Tab) {
+    setTab(value);
+
+    scrollRef.current?.scrollTo({
+      y: 0,
+      animated: false,
+    });
+  }
+
+  const statusLabel = connecting
+    ? 'Pripájanie'
+    : connected
+      ? 'Pripojené'
+      : error
+        ? 'Chyba spojenia'
+        : 'Odpojené';
+
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.screen}
       contentContainerStyle={[
         styles.content,
-        compactLayout && styles.contentCompact,
+        width < 600 && styles.compact,
       ]}
     >
       <View style={styles.header}>
         <View style={styles.brand}>
           <View style={styles.brandMark}>
             <View style={styles.brandLine} />
-            <View style={[styles.brandLine, styles.brandLineShort]} />
+
+            <View
+              style={[
+                styles.brandLine,
+                { width: 15 },
+              ]}
+            />
+
             <View style={styles.brandLine} />
           </View>
 
-          <View>
+          <View style={{ flexShrink: 1 }}>
             <Text style={styles.eyebrow}>
               LAB / RIADENIE A TELEMETRIA
             </Text>
-            <Text style={styles.title}>IoT Monitor</Text>
+
+            <Text style={styles.title}>
+              IoT Monitor
+            </Text>
           </View>
         </View>
 
@@ -435,468 +571,697 @@ export default function HomeScreen() {
             <View
               style={[
                 styles.statusDot,
-                connected && styles.statusDotConnected,
-                connecting && styles.statusDotConnecting,
-                error !== null && styles.statusDotError,
+                {
+                  backgroundColor: error
+                    ? colors.error
+                    : connected
+                      ? colors.olive
+                      : connecting
+                        ? colors.orange
+                        : colors.muted,
+                },
               ]}
             />
 
-            <Text style={styles.statusBadgeText}>
-              {connecting
-                ? 'Pripájanie'
-                : connected
-                  ? 'Pripojené'
-                  : error !== null
-                    ? 'Chyba spojenia'
-                    : 'Odpojené'}
+            <Text style={styles.badgeText}>
+              {statusLabel}
             </Text>
           </View>
 
-          <Text style={styles.headerProtocol}>{protocol}</Text>
+          <Text style={styles.mono}>{protocol}</Text>
         </View>
       </View>
 
-      <View style={styles.notice}>
-        <View style={styles.noticeTag}>
-          <Text style={styles.noticeTagText}>
-            SIMULOVANÝ UZOL
-          </Text>
-        </View>
-
-        <Text style={styles.noticeText}>
-          Testovacie prostredie na počítači. Telemetriu generuje
-          simulátor, nie fyzické ESP32.
-        </Text>
-      </View>
-
-      <View
-        style={[
-          styles.workspace,
-          wideLayout && styles.workspaceWide,
-        ]}
-      >
+      <View style={styles.toolbar}>
         <View
-          style={[
-            styles.sidebar,
-            wideLayout && styles.sidebarWide,
-          ]}
+          accessibilityRole="tablist"
+          style={styles.choices}
         >
-          <View style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionNumber}>01</Text>
-              <Text style={styles.sectionTitle}>PRIPOJENIE</Text>
-            </View>
-
-            <Text style={styles.cardTitle}>
-              Komunikačný kanál
-            </Text>
-
-            <Text style={styles.bodyText}>
-              Vyber protokol a otvor spojenie so simulátorom.
-            </Text>
-
-            <View style={styles.protocolList}>
-              {(['HTTP/REST', 'WebSocket'] as Protocol[]).map(
-                (item, index) => {
-                  const selected = protocol === item;
-
-                  return (
-                    <Pressable
-                      key={item}
-                      accessibilityRole="button"
-                      accessibilityState={{
-                        selected,
-                        disabled: status !== 'disconnected',
-                      }}
-                      disabled={status !== 'disconnected'}
-                      onPress={() => {
-                        setProtocol(item);
-                        setError(null);
-                      }}
-                      style={({ pressed }) => [
-                        styles.protocol,
-                        selected && styles.protocolSelected,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <View style={styles.protocolIdentity}>
-                        <Text
-                          style={[
-                            styles.protocolIndex,
-                            selected &&
-                              styles.protocolIndexSelected,
-                          ]}
-                        >
-                          0{index + 1}
-                        </Text>
-
-                        <Text
-                          style={[
-                            styles.protocolText,
-                            selected &&
-                              styles.protocolTextSelected,
-                          ]}
-                        >
-                          {item}
-                        </Text>
-                      </View>
-
-                      <View
-                        style={[
-                          styles.radio,
-                          selected && styles.radioSelected,
-                        ]}
-                      >
-                        {selected && (
-                          <View style={styles.radioInner} />
-                        )}
-                      </View>
-                    </Pressable>
-                  );
-                }
-              )}
-
-              <View style={styles.protocolUnavailable}>
-                <View style={styles.protocolIdentity}>
-                  <Text style={styles.protocolIndex}>03</Text>
-                  <Text style={styles.protocolUnavailableText}>
-                    MQTT
-                  </Text>
-                </View>
-
-                <Text style={styles.soonText}>
-                  PRIPRAVUJE SA
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.endpointBox}>
-              <Text style={styles.fieldLabel}>
-                ADRESA SERVERA
-              </Text>
-
-              <Text selectable style={styles.endpointText}>
-                {protocol === 'HTTP/REST' ? HTTP_URL : WS_URL}
-              </Text>
-            </View>
-
-            <Text style={styles.smallText}>
-              {protocol === 'HTTP/REST'
-                ? 'Telemetria sa načítava opakovanými HTTP požiadavkami.'
-                : 'Telemetria prichádza cez otvorené WebSocket spojenie.'}
-            </Text>
-
+          {tabs.map((item) => (
             <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: outputBusy }}
-              disabled={outputBusy}
-              onPress={
-                status === 'disconnected'
-                  ? connect
-                  : () => stopConnection()
-              }
+              key={item.id}
+              accessibilityRole="tab"
+              accessibilityState={{
+                selected: tab === item.id,
+              }}
+              onPress={() => selectTab(item.id)}
               style={({ pressed }) => [
-                styles.button,
-                status !== 'disconnected' &&
-                  styles.disconnectButton,
-                outputBusy && styles.disabled,
+                styles.tab,
+                tab === item.id && styles.tabSelected,
                 pressed && styles.pressed,
               ]}
             >
               <Text
                 style={[
-                  styles.buttonText,
-                  status !== 'disconnected' &&
-                    styles.disconnectButtonText,
+                  styles.tabText,
+                  tab === item.id &&
+                    styles.selectedText,
                 ]}
               >
-                {connecting
-                  ? 'Zrušiť pripájanie'
-                  : connected
-                    ? 'Odpojiť'
-                    : 'Pripojiť k simulátoru'}
+                {item.label}
               </Text>
             </Pressable>
-
-            <Text style={styles.connectionFootnote}>
-              Pred zmenou protokolu sa odpoj.
-            </Text>
-          </View>
-
-          <View style={styles.sideNote}>
-            <Text style={styles.fieldLabel}>
-              O TESTOVACOM PROSTREDÍ
-            </Text>
-
-            <Text style={styles.smallText}>
-              HTTP aj WebSocket ovládajú ten istý simulovaný
-              uzol. Zmena protokolu nevypína výstup na serveri.
-            </Text>
-          </View>
+          ))}
         </View>
 
-        <View style={styles.main}>
-          {error !== null && (
-            <View
-              accessibilityRole="alert"
-              style={styles.errorBox}
-            >
-              <Text style={styles.errorTitle}>
-                Chyba komunikácie
-              </Text>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
+        <View style={styles.themeControl}>
+          <Text style={styles.label}>VZHĽAD</Text>
 
-          <View style={styles.card}>
-            <View style={styles.sectionHeadingRow}>
+          <View style={styles.choices}>
+            {themeOptions.map((item) => (
+              <Pressable
+                key={item.value}
+                accessibilityRole="button"
+                accessibilityState={{
+                  selected: preference === item.value,
+                }}
+                onPress={() =>
+                  setPreference(item.value)
+                }
+                style={[
+                  styles.smallChoice,
+                  preference === item.value &&
+                    styles.choiceSelected,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.smallChoiceText,
+                    preference === item.value &&
+                      styles.selectedText,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.notice}>
+        <Text style={styles.noticeTag}>
+          SIMULOVANÝ UZOL
+        </Text>
+
+        <Text style={styles.noticeText}>
+          Testovacie prostredie na počítači.
+          Telemetriu generuje simulátor, nie fyzické ESP32.
+        </Text>
+      </View>
+
+      {error !== null && (
+        <View
+          accessibilityRole="alert"
+          style={styles.errorBox}
+        >
+          <Text style={styles.errorTitle}>
+            Chyba komunikácie
+          </Text>
+
+          <Text style={styles.errorText}>
+            {error}
+          </Text>
+        </View>
+      )}
+
+      {tab === 'overview' && (
+        <View
+          style={[
+            styles.workspace,
+            wideLayout && styles.workspaceWide,
+          ]}
+        >
+          <View
+            style={[
+              styles.sidebar,
+              wideLayout && styles.sidebarWide,
+            ]}
+          >
+            <View style={styles.card}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionNumber}>02</Text>
-                <Text style={styles.sectionTitle}>
-                  TELEMETRIA
+                <Text style={styles.sectionNumber}>01</Text>
+                <Text style={styles.label}>PRIPOJENIE</Text>
+              </View>
+
+              <Text style={styles.cardTitle}>
+                Komunikačný kanál
+              </Text>
+
+              <Text style={styles.body}>
+                Vyber protokol a otvor spojenie so simulátorom.
+              </Text>
+
+              <View style={styles.protocolList}>
+                {(
+                  ['HTTP/REST', 'WebSocket'] as Protocol[]
+                ).map((item, index) => (
+                  <Pressable
+                    key={item}
+                    accessibilityRole="button"
+                    accessibilityState={{
+                      selected: protocol === item,
+                      disabled: status !== 'disconnected',
+                    }}
+                    disabled={status !== 'disconnected'}
+                    onPress={() => {
+                      setProtocol(item);
+                      setError(null);
+                    }}
+                    style={({ pressed }) => [
+                      styles.protocol,
+                      protocol === item &&
+                        styles.choiceSelected,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={styles.protocolIdentity}>
+                      <Text style={styles.mono}>
+                        0{index + 1}
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.protocolText,
+                          protocol === item &&
+                            styles.selectedText,
+                        ]}
+                      >
+                        {item}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.radio,
+                        protocol === item && {
+                          borderColor: colors.olive,
+                        },
+                      ]}
+                    >
+                      {protocol === item && (
+                        <View style={styles.radioInner} />
+                      )}
+                    </View>
+                  </Pressable>
+                ))}
+
+                <View
+                  style={[
+                    styles.protocol,
+                    { borderStyle: 'dashed' },
+                  ]}
+                >
+                  <View style={styles.protocolIdentity}>
+                    <Text style={styles.mono}>03</Text>
+                    <Text style={styles.body}>MQTT</Text>
+                  </View>
+
+                  <Text style={styles.micro}>
+                    PRIPRAVUJE SA
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.inset}>
+                <Text style={styles.label}>
+                  ADRESA SERVERA
+                </Text>
+
+                <Text selectable style={styles.endpoint}>
+                  {protocol === 'HTTP/REST'
+                    ? HTTP_URL
+                    : WS_URL}
                 </Text>
               </View>
 
-              <View style={styles.sourceTag}>
-                <Text style={styles.sourceTagText}>
-                  SIMULÁTOR
-                </Text>
-              </View>
-            </View>
+              <Text style={styles.small}>
+                {protocol === 'HTTP/REST'
+                  ? 'Telemetria sa načítava opakovanými HTTP požiadavkami.'
+                  : 'Telemetria prichádza cez otvorené WebSocket spojenie.'}
+              </Text>
 
-            <View style={styles.telemetryIntro}>
-              <View style={styles.flexible}>
-                <Text style={styles.cardTitle}>
-                  Prehľad prostredia
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{
+                  disabled: outputBusy,
+                }}
+                disabled={outputBusy}
+                onPress={
+                  status === 'disconnected'
+                    ? connect
+                    : () => stopConnection()
+                }
+                style={({ pressed }) => [
+                  styles.button,
+                  status !== 'disconnected' &&
+                    styles.outlineButton,
+                  outputBusy && styles.disabled,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.buttonText,
+                    status !== 'disconnected' && {
+                      color: colors.text,
+                    },
+                  ]}
+                >
+                  {connecting
+                    ? 'Zrušiť pripájanie'
+                    : connected
+                      ? 'Odpojiť'
+                      : 'Pripojiť k simulátoru'}
                 </Text>
+              </Pressable>
 
-                <Text style={styles.bodyText}>
-                  {telemetry
-                    ? `Uzol / ${telemetry.deviceId}`
-                    : 'Údaje sa zobrazia po pripojení.'}
-                </Text>
-              </View>
-
-              <Text style={styles.liveLabel}>
-                {telemetry
-                  ? connected
-                    ? 'PRÍJEM DÁT AKTÍVNY'
-                    : 'NAČÍTAVANIE STAVU'
-                  : 'BEZ DÁT'}
+              <Text style={styles.small}>
+                Pred zmenou protokolu sa odpoj.
               </Text>
             </View>
 
-            <View style={styles.metrics}>
-              <View
-                style={[
-                  styles.metric,
-                  styles.temperatureMetric,
-                ]}
-              >
-                <View style={styles.metricHeading}>
-                  <Text style={styles.metricLabel}>
-                    TEPLOTA
-                  </Text>
-                  <Text style={styles.metricCode}>T / 01</Text>
-                </View>
-
-                <View style={styles.metricReading}>
-                  <Text
-                    style={[
-                      styles.metricValue,
-                      styles.temperatureValue,
-                      compactLayout &&
-                        styles.metricValueCompact,
-                    ]}
-                  >
-                    {telemetry
-                      ? telemetry.temperature
-                          .toFixed(1)
-                          .replace('.', ',')
-                      : '—'}
-                  </Text>
-
-                  <Text style={styles.metricUnit}>°C</Text>
-                </View>
-
-                <Text style={styles.metricCaption}>
-                  {telemetry
-                    ? 'Posledná prijatá hodnota'
-                    : 'Čaká sa na prvú vzorku'}
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  styles.metric,
-                  styles.humidityMetric,
-                ]}
-              >
-                <View style={styles.metricHeading}>
-                  <Text style={styles.metricLabel}>
-                    VLHKOSŤ
-                  </Text>
-                  <Text style={styles.metricCode}>H / 02</Text>
-                </View>
-
-                <View style={styles.metricReading}>
-                  <Text
-                    style={[
-                      styles.metricValue,
-                      styles.humidityValue,
-                      compactLayout &&
-                        styles.metricValueCompact,
-                    ]}
-                  >
-                    {telemetry
-                      ? telemetry.humidity
-                          .toFixed(1)
-                          .replace('.', ',')
-                      : '—'}
-                  </Text>
-
-                  <Text style={styles.metricUnit}>%</Text>
-                </View>
-
-                <Text style={styles.metricCaption}>
-                  {telemetry
-                    ? 'Posledná prijatá hodnota'
-                    : 'Čaká sa na prvú vzorku'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.sampleDetails}>
-              <View style={styles.sampleDetail}>
-                <Text style={styles.fieldLabel}>
-                  ČÍSLO VZORKY
-                </Text>
-                <Text style={styles.detailValue}>
-                  {telemetry ? `#${telemetry.sequence}` : '—'}
-                </Text>
-              </View>
-
-              <View style={styles.sampleDetail}>
-                <Text style={styles.fieldLabel}>
-                  VYGENEROVANÉ NA SERVERI
-                </Text>
-                <Text style={styles.detailValue}>
-                  {telemetry
-                    ? new Date(
-                        telemetry.generatedAt
-                      ).toLocaleTimeString('sk-SK')
-                    : '—'}
-                </Text>
-              </View>
-
-              <View style={styles.sampleDetail}>
-                <Text style={styles.fieldLabel}>PROTOKOL</Text>
-                <Text style={styles.detailValue}>
-                  {protocol}
-                </Text>
-              </View>
-            </View>
+            <Text style={styles.small}>
+              HTTP aj WebSocket ovládajú ten istý
+              simulovaný uzol. Zmena protokolu nevypína
+              výstup na serveri.
+            </Text>
           </View>
 
-          <View style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionNumber}>03</Text>
-              <Text style={styles.sectionTitle}>VÝSTUP</Text>
-            </View>
+          <View style={styles.main}>
+            <View style={styles.card}>
+              <View style={styles.headingRow}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionNumber}>02</Text>
+                  <Text style={styles.label}>TELEMETRIA</Text>
+                </View>
 
-            <View style={styles.outputRow}>
-              <View style={styles.flexible}>
-                <Text style={styles.cardTitle}>
-                  Ovládanie uzla
-                </Text>
-                <Text style={styles.bodyText}>
-                  Digitálny výstup simulovaného zariadenia.
+                <Text style={styles.micro}>
+                  {telemetry
+                    ? 'POSLEDNÁ PRIJATÁ VZORKA'
+                    : 'BEZ DÁT'}
                 </Text>
               </View>
 
-              <View style={styles.switchBox}>
+              <Text style={styles.cardTitle}>
+                Prehľad prostredia
+              </Text>
+
+              <Text style={styles.body}>
+                {telemetry
+                  ? `Uzol / ${telemetry.deviceId}`
+                  : 'Údaje sa zobrazia po pripojení.'}
+              </Text>
+
+              <View style={styles.metrics}>
+                <View
+                  style={[
+                    styles.metric,
+                    {
+                      backgroundColor: colors.orangeSoft,
+                      borderTopColor: colors.orange,
+                    },
+                  ]}
+                >
+                  <View style={styles.headingRow}>
+                    <Text style={styles.label}>TEPLOTA</Text>
+                    <Text style={styles.micro}>T / 01</Text>
+                  </View>
+
+                  <View style={styles.reading}>
+                    <Text
+                      style={[
+                        styles.metricValue,
+                        {
+                          color: colors.orange,
+                          fontSize: width < 600 ? 46 : 54,
+                        },
+                      ]}
+                    >
+                      {telemetry
+                        ? numberText(telemetry.temperature)
+                        : '—'}
+                    </Text>
+
+                    <Text style={styles.unit}>°C</Text>
+                  </View>
+
+                  <Text style={styles.small}>
+                    {telemetry
+                      ? 'Posledná prijatá hodnota'
+                      : 'Čaká sa na prvú vzorku'}
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.metric,
+                    {
+                      backgroundColor: colors.oliveSoft,
+                      borderTopColor: colors.olive,
+                    },
+                  ]}
+                >
+                  <View style={styles.headingRow}>
+                    <Text style={styles.label}>VLHKOSŤ</Text>
+                    <Text style={styles.micro}>H / 02</Text>
+                  </View>
+
+                  <View style={styles.reading}>
+                    <Text
+                      style={[
+                        styles.metricValue,
+                        {
+                          color: colors.olive,
+                          fontSize: width < 600 ? 46 : 54,
+                        },
+                      ]}
+                    >
+                      {telemetry
+                        ? numberText(telemetry.humidity)
+                        : '—'}
+                    </Text>
+
+                    <Text style={styles.unit}>%</Text>
+                  </View>
+
+                  <Text style={styles.small}>
+                    {telemetry
+                      ? 'Posledná prijatá hodnota'
+                      : 'Čaká sa na prvú vzorku'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.details}>
+                <View style={styles.detail}>
+                  <Text style={styles.label}>
+                    ČÍSLO VZORKY
+                  </Text>
+                  <Text style={styles.detailValue}>
+                    {telemetry
+                      ? `#${telemetry.sequence}`
+                      : '—'}
+                  </Text>
+                </View>
+
+                <View style={styles.detail}>
+                  <Text style={styles.label}>
+                    VYGENEROVANÉ NA SERVERI
+                  </Text>
+                  <Text style={styles.detailValue}>
+                    {telemetry
+                      ? new Date(
+                          telemetry.generatedAt
+                        ).toLocaleTimeString('sk-SK')
+                      : '—'}
+                  </Text>
+                </View>
+
+                <View style={styles.detail}>
+                  <Text style={styles.label}>
+                    V HISTÓRII
+                  </Text>
+                  <Text style={styles.detailValue}>
+                    {samples.length} / 60
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionNumber}>03</Text>
+                <Text style={styles.label}>VÝSTUP</Text>
+              </View>
+
+              <View style={styles.outputRow}>
+                <View style={styles.flexible}>
+                  <Text style={styles.cardTitle}>
+                    Ovládanie uzla
+                  </Text>
+                  <Text style={styles.body}>
+                    Digitálny výstup simulovaného zariadenia.
+                  </Text>
+                </View>
+
                 <Switch
                   accessibilityLabel="Simulovaný výstup"
-                  accessibilityHint={
-                    'Zapne alebo vypne výstup na simulátore.'
-                  }
                   value={connected && outputEnabled}
                   disabled={!connected || outputBusy}
                   onValueChange={changeOutput}
                   trackColor={{
-                    false: '#D8D5CA',
-                    true: '#46543A',
+                    false: colors.line,
+                    true: colors.olive,
                   }}
-                  thumbColor="#FCFAF5"
-                  ios_backgroundColor="#D8D5CA"
+                  thumbColor={colors.onAccent}
+                  ios_backgroundColor={colors.line}
                 />
               </View>
-            </View>
 
-            <View style={styles.outputStatePanel}>
-              <View
-                style={[
-                  styles.outputIndicator,
-                  connected &&
-                    outputEnabled &&
-                    styles.outputIndicatorOn,
-                  outputBusy &&
-                    styles.outputIndicatorPending,
-                ]}
-              />
+              <View style={styles.outputState}>
+                <View
+                  style={[
+                    styles.outputIndicator,
+                    {
+                      backgroundColor: outputBusy
+                        ? colors.orange
+                        : connected && outputEnabled
+                          ? colors.olive
+                          : colors.muted,
+                    },
+                  ]}
+                />
 
-              <View style={styles.flexible}>
-                <Text style={styles.outputStateTitle}>
-                  {!connected
-                    ? 'Stav nie je načítaný'
-                    : outputBusy
-                      ? 'Čaká sa na potvrdenie'
-                      : outputEnabled
-                        ? 'Výstup je zapnutý'
-                        : 'Výstup je vypnutý'}
-                </Text>
+                <View style={styles.flexible}>
+                  <Text style={styles.outputTitle}>
+                    {!connected
+                      ? 'Stav nie je načítaný'
+                      : outputBusy
+                        ? 'Čaká sa na potvrdenie'
+                        : outputEnabled
+                          ? 'Výstup je zapnutý'
+                          : 'Výstup je vypnutý'}
+                  </Text>
 
-                <Text style={styles.smallText}>
-                  {!connected
-                    ? 'Pripoj sa a načítaj aktuálny stav zo servera.'
-                    : outputBusy
-                      ? 'Ovládanie bude dostupné po potvrdení príkazu.'
-                      : 'Zobrazený stav bol prijatý zo servera.'}
-                </Text>
+                  <Text style={styles.small}>
+                    {!connected
+                      ? 'Pripoj sa na načítanie stavu zo servera.'
+                      : outputBusy
+                        ? 'Ovládanie bude dostupné po potvrdení.'
+                        : 'Zobrazený stav bol prijatý zo servera.'}
+                  </Text>
+                </View>
               </View>
+
+              <Text style={styles.small}>
+                Vypnutie výstupu nezastaví telemetriu.
+                Odpojenie aplikácie nemení stav výstupu
+                na serveri.
+              </Text>
             </View>
 
-            <Text style={styles.smallText}>
-              Vypnutie výstupu nezastaví telemetriu.
-              Odpojenie aplikácie nemení stav výstupu na serveri.
-            </Text>
-          </View>
+            <View style={styles.card}>
+              <View style={styles.headingRow}>
+                <Text style={styles.label}>
+                  POSLEDNÁ UDALOSŤ
+                </Text>
 
-          <View style={styles.measurementNote}>
-            <Text style={styles.fieldLabel}>
-              ROZSAH AKTUÁLNEHO NÁHĽADU
-            </Text>
-            <Text style={styles.smallText}>
-              Panel zobrazuje telemetriu a stav výstupu.
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => selectTab('events')}
+                >
+                  <Text style={styles.link}>
+                    Otvoriť denník →
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.body}>
+                {events[0]
+                  ? `${new Date(
+                      events[0].time
+                    ).toLocaleTimeString('sk-SK')} / ${
+                      events[0].message
+                    }`
+                  : 'Zatiaľ bez udalostí.'}
+              </Text>
+            </View>
+
+            <Text style={styles.small}>
               Meranie latencie, RTT a spoľahlivosti zatiaľ
               nie je súčasťou tohto prehľadu.
             </Text>
           </View>
         </View>
-      </View>
-      <MonitorInsights
-        samples={samples}
-        events={events}
-        connected={connected}
-        wideLayout={wideLayout}
-        onClearEvents={clearEvents}
-      />
-      
+      )}
+
+      {(tab === 'analysis' || tab === 'events') && (
+        <MonitorInsights
+          view={tab}
+          samples={samples}
+          events={events}
+          connected={connected}
+          sampleWindow={sampleWindow}
+          onSampleWindowChange={setSampleWindow}
+          eventFilter={eventFilter}
+          onEventFilterChange={setEventFilter}
+          onClearEvents={clearEvents}
+        />
+      )}
+
+      {tab === 'settings' && (
+        <View style={styles.settingsGrid}>
+          <View style={[styles.card, styles.settingsCard]}>
+            <Text style={styles.label}>
+              VZHĽAD A PROSTREDIE
+            </Text>
+
+            <Text style={styles.cardTitle}>
+              Téma aplikácie
+            </Text>
+
+            <Text style={styles.body}>
+              Aktívny vzhľad: {isDark ? 'tmavý' : 'svetlý'}.
+              Voľba Systém sleduje nastavenie zariadenia.
+            </Text>
+
+            <View style={styles.choices}>
+              {themeOptions.map((item) => (
+                <Pressable
+                  key={item.value}
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: preference === item.value,
+                  }}
+                  onPress={() =>
+                    setPreference(item.value)
+                  }
+                  style={[
+                    styles.tab,
+                    preference === item.value &&
+                      styles.choiceSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.tabText,
+                      preference === item.value &&
+                        styles.selectedText,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.small}>
+              Voľba sa zatiaľ uchováva iba počas behu
+              aplikácie. Po obnovení stránky sa použije Systém.
+            </Text>
+          </View>
+
+          <View style={[styles.card, styles.settingsCard]}>
+            <Text style={styles.label}>
+              KOMUNIKÁCIA
+            </Text>
+
+            <Text style={styles.cardTitle}>
+              Testovací uzol
+            </Text>
+
+            <Text style={styles.body}>
+              Zdroj údajov: lokálny simulátor.
+              MQTT ešte nie je implementované.
+            </Text>
+
+            <View style={styles.inset}>
+              <Text style={styles.label}>HTTP / REST</Text>
+              <Text selectable style={styles.endpoint}>
+                {HTTP_URL}
+              </Text>
+            </View>
+
+            <View style={styles.inset}>
+              <Text style={styles.label}>WEBSOCKET</Text>
+              <Text selectable style={styles.endpoint}>
+                {WS_URL}
+              </Text>
+            </View>
+
+            <Text style={styles.small}>
+              Adresy sú iba na čítanie a pochádzajú
+              z konfigurácie služieb.
+            </Text>
+          </View>
+
+          <View style={[styles.card, styles.settingsCard]}>
+            <Text style={styles.label}>
+              LOKÁLNE ÚDAJE
+            </Text>
+
+            <Text style={styles.cardTitle}>
+              História a denník
+            </Text>
+
+            <Text style={styles.body}>
+              V pamäti: {samples.length} vzoriek
+              a {events.length} udalostí.
+              Vymazanie nemení stav výstupu ani spojenia.
+            </Text>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{
+                disabled: samples.length === 0,
+              }}
+              disabled={samples.length === 0}
+              onPress={resetHistory}
+              style={[
+                styles.button,
+                styles.outlineButton,
+                samples.length === 0 && styles.disabled,
+              ]}
+            >
+              <Text style={styles.outlineText}>
+                Vymazať históriu telemetrie
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{
+                disabled: events.length === 0,
+              }}
+              disabled={events.length === 0}
+              onPress={clearEvents}
+              style={[
+                styles.button,
+                styles.outlineButton,
+                events.length === 0 && styles.disabled,
+              ]}
+            >
+              <Text style={styles.outlineText}>
+                Vymazať denník udalostí
+              </Text>
+            </Pressable>
+
+            <Text style={styles.small}>
+              Pri aktívnom spojení sa história začne
+              znovu plniť ďalšou prijatou vzorkou.
+              Obnovením stránky sa všetky tieto údaje vymažú.
+            </Text>
+          </View>
+        </View>
+      )}
+
       <View style={styles.footer}>
-        <Text style={styles.footerText}>
+        <Text style={styles.mono}>
           IoT Monitor / Laboratórny panel
         </Text>
-        <Text style={styles.footerText}>
+
+        <Text style={styles.mono}>
           HTTP · WebSocket · MQTT vo vývoji
         </Text>
       </View>
@@ -904,582 +1269,459 @@ export default function HomeScreen() {
   );
 }
 
-const colors = {
-  background: '#F2EFE7',
-  surface: '#FCFAF5',
-  text: '#252923',
-  muted: '#666B60',
-  line: '#D8D5CA',
-  olive: '#46543A',
-  oliveSoft: '#E8EBE0',
-  orange: '#B94F2D',
-  orangeSoft: '#F5E8DD',
-  error: '#993D32',
-  errorSoft: '#F7E8E3',
-};
-
-const monoFont = Platform.select({
-  ios: 'Menlo',
-  android: 'monospace',
-  default: 'monospace',
-});
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    width: '100%',
-    maxWidth: 1320,
-    alignSelf: 'center',
-    paddingHorizontal: 36,
-    paddingTop: 36,
-    paddingBottom: 28,
-    gap: 24,
-  },
-  contentCompact: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    gap: 18,
-  },
-  header: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 20,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-  },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    flexShrink: 1,
-  },
-  brandMark: {
-    width: 44,
-    height: 48,
-    flexShrink: 0,
-    backgroundColor: colors.olive,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingHorizontal: 10,
-    gap: 5,
-  },
-  brandLine: {
-    width: 24,
-    height: 3,
-    backgroundColor: colors.surface,
-  },
-  brandLineShort: {
-    width: 15,
-    backgroundColor: '#D9B58E',
-  },
-  eyebrow: {
-    fontFamily: monoFont,
-    fontSize: 10,
-    letterSpacing: 1.3,
-    color: colors.muted,
-    marginBottom: 5,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '700',
-    letterSpacing: -1,
-    color: colors.text,
-  },
-  headerMeta: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 12,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-    borderRadius: 4,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-  },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.muted,
-  },
-  statusDotConnected: {
-    backgroundColor: colors.olive,
-  },
-  statusDotConnecting: {
-    backgroundColor: colors.orange,
-  },
-  statusDotError: {
-    backgroundColor: colors.error,
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  headerProtocol: {
-    fontFamily: monoFont,
-    fontSize: 11,
-    color: colors.muted,
-  },
-  notice: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: '#EBE6D9',
-    borderLeftWidth: 3,
-    borderLeftColor: colors.orange,
-  },
-  noticeTag: {
-    paddingVertical: 5,
-    paddingHorizontal: 7,
-    borderWidth: 1,
-    borderColor: '#CEB9A4',
-    borderRadius: 3,
-  },
-  noticeTagText: {
-    fontFamily: monoFont,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.7,
-    color: '#7D4229',
-  },
-  noticeText: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 260,
-    fontSize: 12,
-    lineHeight: 19,
-    color: '#625A4C',
-  },
-  workspace: {
-    gap: 24,
-    alignItems: 'stretch',
-  },
-  workspaceWide: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  sidebar: {
-    width: '100%',
-    gap: 18,
-  },
-  sidebarWide: {
-    width: 310,
-    flexShrink: 0,
-  },
-  main: {
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 0,
-    gap: 24,
-  },
-  card: {
-    padding: 22,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-    gap: 18,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-  },
-  sectionHeadingRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  sectionNumber: {
-    fontFamily: monoFont,
-    fontSize: 11,
-    color: colors.orange,
-  },
-  sectionTitle: {
-    fontFamily: monoFont,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    color: colors.muted,
-  },
-  cardTitle: {
-    fontSize: 21,
-    fontWeight: '600',
-    letterSpacing: -0.4,
-    color: colors.text,
-  },
-  bodyText: {
-    fontSize: 13,
-    lineHeight: 21,
-    color: colors.muted,
-  },
-  smallText: {
-    fontSize: 12,
-    lineHeight: 19,
-    color: colors.muted,
-  },
-  flexible: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 0,
-    minWidth: 0,
-    gap: 5,
-  },
-  protocolList: {
-    gap: 8,
-  },
-  protocol: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 4,
-    backgroundColor: colors.surface,
-  },
-  protocolSelected: {
-    borderColor: colors.olive,
-    backgroundColor: colors.oliveSoft,
-  },
-  protocolIdentity: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  protocolIndex: {
-    fontFamily: monoFont,
-    fontSize: 10,
-    color: colors.muted,
-  },
-  protocolIndexSelected: {
-    color: colors.olive,
-  },
-  protocolText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  protocolTextSelected: {
-    color: colors.olive,
-  },
-  radio: {
-    width: 15,
-    height: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#A5A99B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioSelected: {
-    borderColor: colors.olive,
-  },
-  radioInner: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.olive,
-  },
-  protocolUnavailable: {
-    minHeight: 48,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderStyle: 'dashed',
-    borderRadius: 4,
-  },
-  protocolUnavailableText: {
-    fontSize: 13,
-    color: colors.muted,
-  },
-  soonText: {
-    fontFamily: monoFont,
-    fontSize: 8,
-    letterSpacing: 0.5,
-    color: colors.muted,
-  },
-  endpointBox: {
-    padding: 12,
-    backgroundColor: colors.background,
-    borderRadius: 4,
-    gap: 7,
-  },
-  fieldLabel: {
-    fontFamily: monoFont,
-    fontSize: 9,
-    fontWeight: '600',
-    letterSpacing: 0.8,
-    lineHeight: 15,
-    color: colors.muted,
-  },
-  endpointText: {
-    fontFamily: monoFont,
-    fontSize: 12,
-    lineHeight: 20,
-    color: colors.text,
-    flexShrink: 1,
-  },
-  button: {
-    minHeight: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.olive,
-    backgroundColor: colors.olive,
-  },
-  buttonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-    color: colors.surface,
-  },
-  disconnectButton: {
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
-  },
-  disconnectButtonText: {
-    color: colors.text,
-  },
-  disabled: {
-    opacity: 0.45,
-  },
-  pressed: {
-    opacity: 0.75,
-  },
-  connectionFootnote: {
-    fontSize: 11,
-    lineHeight: 17,
-    textAlign: 'center',
-    color: colors.muted,
-  },
-  sideNote: {
-    paddingHorizontal: 6,
-    gap: 8,
-  },
-  sourceTag: {
-    backgroundColor: colors.background,
-    borderRadius: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  sourceTagText: {
-    fontFamily: monoFont,
-    fontSize: 9,
-    letterSpacing: 0.8,
-    color: colors.muted,
-  },
-  telemetryIntro: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 14,
-  },
-  liveLabel: {
-    fontFamily: monoFont,
-    fontSize: 9,
-    letterSpacing: 0.6,
-    color: colors.olive,
-  },
-  metrics: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 14,
-  },
-  metric: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 230,
-    minWidth: 0,
-    padding: 20,
-    borderRadius: 4,
-    gap: 20,
-  },
-  temperatureMetric: {
-    backgroundColor: colors.orangeSoft,
-    borderTopWidth: 2,
-    borderTopColor: colors.orange,
-  },
-  humidityMetric: {
-    backgroundColor: colors.oliveSoft,
-    borderTopWidth: 2,
-    borderTopColor: colors.olive,
-  },
-  metricHeading: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-  },
-  metricLabel: {
-    fontFamily: monoFont,
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 1,
-    color: colors.text,
-  },
-  metricCode: {
-    fontFamily: monoFont,
-    fontSize: 9,
-    color: colors.muted,
-  },
-  metricReading: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'baseline',
-    gap: 8,
-  },
-  metricValue: {
-    fontSize: 54,
-    fontWeight: '600',
-    letterSpacing: -2,
-    fontVariant: ['tabular-nums'],
-  },
-  metricValueCompact: {
-    fontSize: 46,
-  },
-  temperatureValue: {
-    color: colors.orange,
-  },
-  humidityValue: {
-    color: colors.olive,
-  },
-  metricUnit: {
-    fontFamily: monoFont,
-    fontSize: 19,
-    color: colors.muted,
-  },
-  metricCaption: {
-    fontSize: 11,
-    lineHeight: 17,
-    color: colors.muted,
-  },
-  sampleDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 20,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-    paddingTop: 18,
-  },
-  sampleDetail: {
-    flexGrow: 1,
-    flexBasis: 145,
-    gap: 6,
-  },
-  detailValue: {
-    fontFamily: monoFont,
-    fontSize: 13,
-    color: colors.text,
-  },
-  outputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  switchBox: {
-    minWidth: 56,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outputStatePanel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 16,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.background,
-  },
-  outputIndicator: {
-    width: 12,
-    height: 12,
-    flexShrink: 0,
-    borderRadius: 3,
-    backgroundColor: '#8B8F83',
-  },
-  outputIndicatorOn: {
-    backgroundColor: colors.olive,
-  },
-  outputIndicatorPending: {
-    backgroundColor: colors.orange,
-  },
-  outputStateTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  measurementNote: {
-    borderLeftWidth: 2,
-    borderLeftColor: colors.line,
-    paddingLeft: 14,
-    gap: 6,
-  },
-  errorBox: {
-    padding: 18,
-    borderRadius: 4,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.error,
-    backgroundColor: colors.errorSoft,
-    gap: 6,
-  },
-  errorTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.error,
-  },
-  errorText: {
-    fontSize: 13,
-    lineHeight: 21,
-    color: colors.error,
-  },
-  footer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 10,
-    paddingTop: 18,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-  },
-  footerText: {
-    fontFamily: monoFont,
-    fontSize: 10,
-    lineHeight: 17,
-    color: colors.muted,
-  },
-});
+function createStyles(colors: MonitorColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      width: '100%',
+      maxWidth: 1320,
+      alignSelf: 'center',
+      paddingHorizontal: 36,
+      paddingTop: 36,
+      paddingBottom: 28,
+      gap: 24,
+    },
+    compact: {
+      paddingHorizontal: 16,
+      paddingTop: 24,
+      gap: 18,
+    },
+    header: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 20,
+      paddingBottom: 24,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.line,
+    },
+    brand: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      flexShrink: 1,
+    },
+    brandMark: {
+      width: 44,
+      height: 48,
+      flexShrink: 0,
+      backgroundColor: colors.olive,
+      borderRadius: 4,
+      justifyContent: 'center',
+      paddingHorizontal: 10,
+      gap: 5,
+    },
+    brandLine: {
+      width: 24,
+      height: 3,
+      backgroundColor: colors.onAccent,
+    },
+    eyebrow: {
+      fontFamily: monoFont,
+      fontSize: 10,
+      letterSpacing: 1.1,
+      color: colors.muted,
+      marginBottom: 5,
+    },
+    title: {
+      fontSize: 30,
+      fontWeight: '700',
+      letterSpacing: -1,
+      color: colors.text,
+    },
+    headerMeta: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 12,
+    },
+    statusBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.surface,
+      borderRadius: 4,
+      paddingVertical: 9,
+      paddingHorizontal: 12,
+    },
+    statusDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+    },
+    badgeText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    mono: {
+      fontFamily: monoFont,
+      fontSize: 10,
+      lineHeight: 17,
+      color: colors.muted,
+    },
+    toolbar: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 18,
+    },
+    choices: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    tab: {
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.surface,
+    },
+    tabSelected: {
+      borderColor: colors.olive,
+      backgroundColor: colors.oliveSoft,
+    },
+    tabText: {
+      fontSize: 13,
+      color: colors.text,
+    },
+    selectedText: {
+      color: colors.olive,
+      fontWeight: '600',
+    },
+    themeControl: { gap: 7 },
+    smallChoice: {
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: colors.line,
+    },
+    smallChoiceText: {
+      fontSize: 11,
+      color: colors.text,
+    },
+    choiceSelected: {
+      borderColor: colors.olive,
+      backgroundColor: colors.oliveSoft,
+    },
+    notice: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 12,
+      padding: 14,
+      backgroundColor: colors.notice,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.orange,
+    },
+    noticeTag: {
+      fontFamily: monoFont,
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.6,
+      color: colors.orange,
+    },
+    noticeText: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 260,
+      fontSize: 12,
+      lineHeight: 19,
+      color: colors.muted,
+    },
+    workspace: {
+      gap: 24,
+      alignItems: 'stretch',
+    },
+    workspaceWide: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+    },
+    sidebar: {
+      width: '100%',
+      gap: 18,
+    },
+    sidebarWide: {
+      width: 310,
+      flexShrink: 0,
+    },
+    main: {
+      flexGrow: 1,
+      flexShrink: 1,
+      minWidth: 0,
+      gap: 24,
+    },
+    card: {
+      padding: 22,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.surface,
+      gap: 18,
+      minWidth: 0,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 9,
+    },
+    sectionNumber: {
+      fontFamily: monoFont,
+      fontSize: 11,
+      color: colors.orange,
+    },
+    label: {
+      fontFamily: monoFont,
+      fontSize: 9,
+      fontWeight: '600',
+      letterSpacing: 0.8,
+      lineHeight: 15,
+      color: colors.muted,
+    },
+    cardTitle: {
+      fontSize: 21,
+      fontWeight: '600',
+      letterSpacing: -0.4,
+      color: colors.text,
+    },
+    body: {
+      fontSize: 13,
+      lineHeight: 21,
+      color: colors.muted,
+    },
+    small: {
+      fontSize: 12,
+      lineHeight: 19,
+      color: colors.muted,
+    },
+    flexible: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 0,
+      minWidth: 0,
+      gap: 5,
+    },
+    protocolList: { gap: 8 },
+    protocol: {
+      minHeight: 48,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      borderWidth: 1,
+      borderColor: colors.line,
+      borderRadius: 4,
+    },
+    protocolIdentity: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    protocolText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    radio: {
+      width: 15,
+      height: 15,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    radioInner: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor: colors.olive,
+    },
+    micro: {
+      fontFamily: monoFont,
+      fontSize: 8,
+      lineHeight: 14,
+      letterSpacing: 0.5,
+      color: colors.muted,
+    },
+    inset: {
+      padding: 12,
+      backgroundColor: colors.background,
+      borderRadius: 4,
+      gap: 7,
+    },
+    endpoint: {
+      fontFamily: monoFont,
+      fontSize: 12,
+      lineHeight: 20,
+      color: colors.text,
+      flexShrink: 1,
+    },
+    button: {
+      minHeight: 46,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: colors.olive,
+      backgroundColor: colors.olive,
+    },
+    buttonText: {
+      fontSize: 13,
+      fontWeight: '600',
+      textAlign: 'center',
+      color: colors.onAccent,
+    },
+    outlineButton: {
+      backgroundColor: colors.surface,
+      borderColor: colors.line,
+    },
+    outlineText: {
+      fontSize: 13,
+      textAlign: 'center',
+      color: colors.text,
+    },
+    disabled: { opacity: 0.45 },
+    pressed: { opacity: 0.75 },
+    headingRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+    },
+    metrics: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 14,
+    },
+    metric: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 230,
+      minWidth: 0,
+      padding: 20,
+      borderRadius: 4,
+      gap: 20,
+      borderTopWidth: 2,
+    },
+    reading: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'baseline',
+      gap: 8,
+    },
+    metricValue: {
+      fontWeight: '600',
+      letterSpacing: -2,
+      fontVariant: ['tabular-nums'],
+    },
+    unit: {
+      fontFamily: monoFont,
+      fontSize: 19,
+      color: colors.muted,
+    },
+    details: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 20,
+      borderTopWidth: 1,
+      borderTopColor: colors.line,
+      paddingTop: 18,
+    },
+    detail: {
+      flexGrow: 1,
+      flexBasis: 145,
+      gap: 6,
+    },
+    detailValue: {
+      fontFamily: monoFont,
+      fontSize: 13,
+      color: colors.text,
+    },
+    outputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    outputState: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      padding: 16,
+      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.background,
+    },
+    outputIndicator: {
+      width: 12,
+      height: 12,
+      flexShrink: 0,
+      borderRadius: 3,
+    },
+    outputTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    link: {
+      fontSize: 12,
+      lineHeight: 20,
+      color: colors.olive,
+    },
+    errorBox: {
+      padding: 18,
+      borderRadius: 4,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.error,
+      backgroundColor: colors.errorSoft,
+      gap: 6,
+    },
+    errorTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.error,
+    },
+    errorText: {
+      fontSize: 13,
+      lineHeight: 21,
+      color: colors.error,
+    },
+    settingsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'flex-start',
+      gap: 24,
+    },
+    settingsCard: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 330,
+    },
+    footer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      gap: 10,
+      paddingTop: 18,
+      borderTopWidth: 1,
+      borderTopColor: colors.line,
+    },
+  });
+}

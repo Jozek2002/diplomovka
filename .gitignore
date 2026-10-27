@@ -1,9 +1,13 @@
 # Závislosti
 node_modules/
 
-# Expo a webový build
+# Expo a webové buildy
 .expo/
 dist/
+web-build/
+
+# Dočasné údaje TypeScriptu
+*.tsbuildinfo
 
 # Lokálne nastavenia a tajné údaje
 .env
@@ -12,3 +16,16 @@ dist/
 
 # Logy
 *.log
+
+# Výstupy testov
+coverage/
+
+# Súbory operačného systému
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Dočasné súbory editorov
+*.swp
+*.swo
+*~
