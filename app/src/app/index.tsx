@@ -13,16 +13,17 @@ import {
   requestJson,
 } from '@/services/http-client';
 
+import {
+  createWebSocketClient,
+  WS_URL,
+} from '@/services/websocket-client';
+
 import type {
   OutputState,
   Protocol,
-  ServerMessage,
   Status,
   Telemetry,
 } from '@/types/iot';
-
-const WS_URL = 'ws://127.0.0.1:3000/ws';
-
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.name === 'AbortError') {
@@ -167,99 +168,80 @@ export default function HomeScreen() {
   }
 
   function connectWebSocket() {
-    releaseResources();
-    const currentSession = session.current;
+  releaseResources();
+  const currentSession = session.current;
 
-    setStatus('connecting');
-    setError(null);
-    setTelemetry(null);
-    setOutputBusy(false);
+  setStatus('connecting');
+  setError(null);
+  setTelemetry(null);
+  setOutputBusy(false);
 
-    let receivedTelemetry = false;
-    let receivedOutput = false;
+  function isCurrentSession() {
+    return session.current === currentSession;
+  }
 
-    try {
-      const socket = new WebSocket(WS_URL);
-      socketRef.current = socket;
-
-      connectTimer.current = setTimeout(() => {
-        if (session.current === currentSession) {
-          stopConnection(
-            'WebSocket neposlal úvodný stav do 5 sekúnd.'
-          );
-        }
-      }, 5000);
-
-      function markReady() {
-        if (receivedTelemetry && receivedOutput) {
-          if (connectTimer.current !== null) {
-            clearTimeout(connectTimer.current);
-            connectTimer.current = null;
-          }
-
-          setStatus('connected');
-        }
+  try {
+    connectTimer.current = setTimeout(() => {
+      if (isCurrentSession()) {
+        stopConnection(
+          'WebSocket neposlal úvodný stav do 5 sekúnd.'
+        );
       }
+    }, 5000);
 
-      socket.onmessage = (event) => {
-        if (session.current !== currentSession) {
+    socketRef.current = createWebSocketClient({
+      onTelemetry: (data) => {
+        if (isCurrentSession()) {
+          setTelemetry(data);
+        }
+      },
+
+      onOutput: (data) => {
+        if (!isCurrentSession()) {
           return;
         }
 
-        try {
-          const message = JSON.parse(
-            String(event.data)
-          ) as ServerMessage;
+        setOutputEnabled(data.outputEnabled);
 
-          switch (message.type) {
-            case 'telemetry':
-              setTelemetry(message.data);
-              receivedTelemetry = true;
-              markReady();
-              break;
-
-            case 'output':
-              setOutputEnabled(message.data.outputEnabled);
-              receivedOutput = true;
-
-              if (outputTimer.current !== null) {
-                clearTimeout(outputTimer.current);
-                outputTimer.current = null;
-              }
-
-              setOutputBusy(false);
-              markReady();
-              break;
-
-            case 'error':
-              stopConnection(message.message);
-              break;
-
-            default:
-              stopConnection('Server poslal neznámy typ správy.');
-          }
-        } catch {
-          stopConnection('Nepodarilo sa spracovať správu servera.');
+        if (outputTimer.current !== null) {
+          clearTimeout(outputTimer.current);
+          outputTimer.current = null;
         }
-      };
 
-      socket.onerror = () => {
-        if (session.current === currentSession) {
+        setOutputBusy(false);
+      },
+
+      onReady: () => {
+        if (!isCurrentSession()) {
+          return;
+        }
+
+        if (connectTimer.current !== null) {
+          clearTimeout(connectTimer.current);
+          connectTimer.current = null;
+        }
+
+        setStatus('connected');
+      },
+
+      onError: (message) => {
+        if (isCurrentSession()) {
+          stopConnection(message);
+        }
+      },
+
+      onClose: () => {
+        if (isCurrentSession()) {
           stopConnection(
-            'WebSocket spojenie zlyhalo. Skontroluj simulátor.'
+            'Server ukončil WebSocket spojenie.'
           );
         }
-      };
-
-      socket.onclose = () => {
-        if (session.current === currentSession) {
-          stopConnection('Server ukončil WebSocket spojenie.');
-        }
-      };
-    } catch (connectionError) {
-      stopConnection(errorMessage(connectionError));
-    }
+      },
+    });
+  } catch (connectionError) {
+    stopConnection(errorMessage(connectionError));
   }
+}
 
   function connect() {
     if (protocol === 'HTTP/REST') {
