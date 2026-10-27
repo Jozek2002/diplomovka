@@ -8,52 +8,21 @@ import {
   View,
 } from 'react-native';
 
-const HTTP_URL = 'http://127.0.0.1:3000';
+import {
+  HTTP_URL,
+  requestJson,
+} from '@/services/http-client';
+
+import type {
+  OutputState,
+  Protocol,
+  ServerMessage,
+  Status,
+  Telemetry,
+} from '@/types/iot';
+
 const WS_URL = 'ws://127.0.0.1:3000/ws';
 
-type Protocol = 'HTTP/REST' | 'WebSocket';
-type Status = 'disconnected' | 'connecting' | 'connected';
-
-type Telemetry = {
-  deviceId: string;
-  simulated: boolean;
-  sequence: number;
-  temperature: number;
-  humidity: number;
-  generatedAt: number;
-};
-
-type OutputState = {
-  outputEnabled: boolean;
-};
-
-type ServerMessage =
-  | { type: 'telemetry'; data: Telemetry }
-  | { type: 'output'; data: OutputState }
-  | { type: 'error'; message: string };
-
-async function requestJson<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5000);
-
-  try {
-    const response = await fetch(`${HTTP_URL}${path}`, {
-      ...options,
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Server vrátil HTTP ${response.status}.`);
-    }
-
-    return (await response.json()) as T;
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.name === 'AbortError') {
