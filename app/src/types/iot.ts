@@ -18,15 +18,22 @@ export type OutputState = {
   outputEnabled: boolean;
 };
 
+export type OutputAck = {
+  type: 'outputAck';
+  requestId: string;
+  data: OutputState;
+};
+
 export type ServerMessage =
   | {
-      type: 'telemetry';
+      type: 'telemetry';  
       data: Telemetry;
     }
   | {
       type: 'output';
       data: OutputState;
     }
+  | OutputAck
   | {
       type: 'error';
       message: string;

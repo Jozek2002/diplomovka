@@ -44,6 +44,8 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const session = useRef(0);
+  const requestCounter = useRef(0);
+  const pendingRequestId = useRef<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
 
   const connectTimer = useRef<
@@ -71,6 +73,7 @@ export default function HomeScreen() {
 
   function releaseResources() {
     session.current += 1;
+    pendingRequestId.current = null;
     clearTimers();
 
     const socket = socketRef.current;
@@ -100,7 +103,6 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // HTTP polling: ďalšia požiadavka sa plánuje až po odpovedi.
   useEffect(() => {
     if (status !== 'connected' || protocol !== 'HTTP/REST') {
       return;
@@ -145,6 +147,7 @@ export default function HomeScreen() {
     setStatus('connecting');
     setError(null);
     setTelemetry(null);
+    setOutputEnabled(false);
     setOutputBusy(false);
 
     try {
@@ -168,80 +171,94 @@ export default function HomeScreen() {
   }
 
   function connectWebSocket() {
-  releaseResources();
-  const currentSession = session.current;
+    releaseResources();
+    const currentSession = session.current;
 
-  setStatus('connecting');
-  setError(null);
-  setTelemetry(null);
-  setOutputBusy(false);
+    setStatus('connecting');
+    setError(null);
+    setTelemetry(null);
+    setOutputEnabled(false);
+    setOutputBusy(false);
 
-  function isCurrentSession() {
-    return session.current === currentSession;
-  }
+    function isCurrentSession() {
+      return session.current === currentSession;
+    }
 
-  try {
-    connectTimer.current = setTimeout(() => {
-      if (isCurrentSession()) {
-        stopConnection(
-          'WebSocket neposlal úvodný stav do 5 sekúnd.'
-        );
-      }
-    }, 5000);
-
-    socketRef.current = createWebSocketClient({
-      onTelemetry: (data) => {
-        if (isCurrentSession()) {
-          setTelemetry(data);
-        }
-      },
-
-      onOutput: (data) => {
-        if (!isCurrentSession()) {
-          return;
-        }
-
-        setOutputEnabled(data.outputEnabled);
-
-        if (outputTimer.current !== null) {
-          clearTimeout(outputTimer.current);
-          outputTimer.current = null;
-        }
-
-        setOutputBusy(false);
-      },
-
-      onReady: () => {
-        if (!isCurrentSession()) {
-          return;
-        }
-
-        if (connectTimer.current !== null) {
-          clearTimeout(connectTimer.current);
-          connectTimer.current = null;
-        }
-
-        setStatus('connected');
-      },
-
-      onError: (message) => {
-        if (isCurrentSession()) {
-          stopConnection(message);
-        }
-      },
-
-      onClose: () => {
+    try {
+      connectTimer.current = setTimeout(() => {
         if (isCurrentSession()) {
           stopConnection(
-            'Server ukončil WebSocket spojenie.'
+            'WebSocket neposlal úvodný stav do 5 sekúnd.'
           );
         }
-      },
-    });
-  } catch (connectionError) {
-    stopConnection(errorMessage(connectionError));
+      }, 5000);
+
+      socketRef.current = createWebSocketClient({
+        onTelemetry: (data) => {
+          if (isCurrentSession()) {
+            setTelemetry(data);
+          }
+        },
+
+        onOutput: (data) => {
+          if (isCurrentSession()) {
+            setOutputEnabled(data.outputEnabled);
+          }
+        },
+
+        onOutputAck: (message) => {
+          if (
+            !isCurrentSession() ||
+            message.requestId !== pendingRequestId.current
+          ) {
+            return;
+          }
+
+          if (outputTimer.current !== null) {
+            clearTimeout(outputTimer.current);
+            outputTimer.current = null;
+          }
+
+          pendingRequestId.current = null;
+          setOutputEnabled(message.data.outputEnabled);
+          setOutputBusy(false);
+
+          console.log(
+            `[WS ACK] Potvrdený príkaz ${message.requestId}`
+          );
+        },
+
+        onReady: () => {
+          if (!isCurrentSession()) {
+            return;
+          }
+
+          if (connectTimer.current !== null) {
+            clearTimeout(connectTimer.current);
+            connectTimer.current = null;
+          }
+
+          setStatus('connected');
+        },
+
+        onError: (message) => {
+          if (isCurrentSession()) {
+            stopConnection(message);
+          }
+        },
+
+        onClose: () => {
+          if (isCurrentSession()) {
+            stopConnection(
+              'Server ukončil WebSocket spojenie.'
+            );
+          }
+        },
+      });
+    } catch (connectionError) {
+      stopConnection(errorMessage(connectionError));
+    }
   }
-}
 
   function connect() {
     if (protocol === 'HTTP/REST') {
@@ -252,28 +269,47 @@ export default function HomeScreen() {
   }
 
   async function changeOutput(nextValue: boolean) {
-    if (!connected || outputBusy) {
+    if (
+      !connected ||
+      outputBusy ||
+      pendingRequestId.current !== null
+    ) {
       return;
     }
 
     const currentSession = session.current;
+
     setOutputBusy(true);
     setError(null);
 
     if (protocol === 'WebSocket') {
       const socket = socketRef.current;
 
-      if (socket === null || socket.readyState !== WebSocket.OPEN) {
+      if (
+        socket === null ||
+        socket.readyState !== WebSocket.OPEN
+      ) {
         stopConnection('WebSocket spojenie nie je otvorené.');
         return;
       }
 
+      requestCounter.current += 1;
+
+      const requestId =
+        `req-${Date.now()}-${requestCounter.current}`;
+
+      pendingRequestId.current = requestId;
+
       try {
         outputTimer.current = setTimeout(() => {
-          if (session.current === currentSession) {
+          if (
+            session.current === currentSession &&
+            pendingRequestId.current === requestId
+          ) {
             stopConnection(
-              'Server nepotvrdil výstup. Jeho stav je neistý; ' +
-                'znovu sa pripoj na načítanie aktuálneho stavu.'
+              `Server nepotvrdil príkaz ${requestId}. ` +
+                'Stav výstupu je neistý; znovu sa pripoj ' +
+                'na načítanie aktuálneho stavu.'
             );
           }
         }, 5000);
@@ -281,6 +317,7 @@ export default function HomeScreen() {
         socket.send(
           JSON.stringify({
             type: 'setOutput',
+            requestId,
             outputEnabled: nextValue,
           })
         );
@@ -323,12 +360,16 @@ export default function HomeScreen() {
       contentContainerStyle={styles.content}
     >
       <Text style={styles.title}>IoT Monitor</Text>
+
       <Text style={styles.subtitle}>
         Riadenie a telemetria vo Wi-Fi sieti
       </Text>
 
       <View style={styles.notice}>
-        <Text style={styles.noticeTitle}>SIMULOVANÝ UZOL</Text>
+        <Text style={styles.noticeTitle}>
+          SIMULOVANÝ UZOL
+        </Text>
+
         <Text style={styles.noticeText}>
           Komunikácia používa vybraný protokol. Hodnoty generuje
           simulátor na počítači, nie ESP32.
@@ -336,7 +377,9 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.heading}>Komunikačný protokol</Text>
+        <Text style={styles.heading}>
+          Komunikačný protokol
+        </Text>
 
         <View style={styles.protocols}>
           {(['HTTP/REST', 'WebSocket'] as Protocol[]).map(
@@ -371,13 +414,16 @@ export default function HomeScreen() {
           )}
 
           <View style={[styles.protocol, styles.disabled]}>
-            <Text style={styles.protocolText}>MQTT — neskôr</Text>
+            <Text style={styles.protocolText}>
+              MQTT — neskôr
+            </Text>
           </View>
         </View>
 
         <Text style={styles.hint}>
           {protocol === 'HTTP/REST' ? HTTP_URL : WS_URL}
         </Text>
+
         <Text style={styles.hint}>
           Pred zmenou protokolu sa odpoj.
         </Text>
@@ -410,7 +456,8 @@ export default function HomeScreen() {
           }
           style={[
             styles.button,
-            status !== 'disconnected' && styles.disconnectButton,
+            status !== 'disconnected' &&
+              styles.disconnectButton,
             outputBusy && styles.disabled,
           ]}
         >
@@ -426,7 +473,9 @@ export default function HomeScreen() {
 
       {error !== null && (
         <View style={styles.errorBox}>
-          <Text style={styles.errorTitle}>Chyba komunikácie</Text>
+          <Text style={styles.errorTitle}>
+            Chyba komunikácie
+          </Text>
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
@@ -436,7 +485,10 @@ export default function HomeScreen() {
 
         <View style={styles.row}>
           <View style={styles.outputLabel}>
-            <Text style={styles.label}>Simulovaný výstup</Text>
+            <Text style={styles.label}>
+              Simulovaný výstup
+            </Text>
+
             <Text style={styles.hint}>
               {!connected
                 ? 'Stav nie je načítaný'
@@ -476,6 +528,7 @@ export default function HomeScreen() {
             <View style={styles.metrics}>
               <View style={styles.metric}>
                 <Text style={styles.hint}>Teplota</Text>
+
                 <Text style={styles.metricValue}>
                   {telemetry.temperature.toFixed(1)} °C
                 </Text>
@@ -483,6 +536,7 @@ export default function HomeScreen() {
 
               <View style={styles.metric}>
                 <Text style={styles.hint}>Vlhkosť</Text>
+
                 <Text style={styles.metricValue}>
                   {telemetry.humidity.toFixed(1)} %
                 </Text>
@@ -490,18 +544,24 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.row}>
-              <Text style={styles.hint}>Číslo vzorky na serveri</Text>
+              <Text style={styles.hint}>
+                Číslo vzorky na serveri
+              </Text>
+
               <Text style={styles.detail}>
                 {telemetry.sequence}
               </Text>
             </View>
 
             <View style={styles.row}>
-              <Text style={styles.hint}>Vygenerované na serveri</Text>
+              <Text style={styles.hint}>
+                Vygenerované na serveri
+              </Text>
+
               <Text style={styles.detail}>
-                {new Date(telemetry.generatedAt).toLocaleTimeString(
-                  'sk-SK'
-                )}
+                {new Date(
+                  telemetry.generatedAt
+                ).toLocaleTimeString('sk-SK')}
               </Text>
             </View>
 

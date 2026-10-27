@@ -203,17 +203,37 @@ wss.on('connection', (socket) => {
     }
 
     if (message.type === 'setOutput') {
-      if (typeof message.outputEnabled !== 'boolean') {
-        sendJson(socket, {
-          type: 'error',
-          message: 'Pole outputEnabled musí byť boolean.',
-        });
-        return;
-      }
+  const validRequestId =
+    typeof message.requestId === 'string' &&
+    message.requestId.length > 0 &&
+    message.requestId.length <= 128;
 
-      setOutput(message.outputEnabled, 'WS');
-      return;
-    }
+  if (!validRequestId) {
+    sendJson(socket, {
+      type: 'error',
+      message: 'Príkaz musí obsahovať platné requestId.',
+    });
+    return;
+  }
+
+  if (typeof message.outputEnabled !== 'boolean') {
+    sendJson(socket, {
+      type: 'error',
+      message: 'Pole outputEnabled musí byť boolean.',
+    });
+    return;
+  }
+
+  const result = setOutput(message.outputEnabled, 'WS');
+
+  sendJson(socket, {
+    type: 'outputAck',
+    requestId: message.requestId,
+    data: result,
+  });
+
+  return;
+}
 
     sendJson(socket, {
       type: 'error',

@@ -1,4 +1,5 @@
 import type {
+  OutputAck,
   OutputState,
   ServerMessage,
   Telemetry,
@@ -9,6 +10,7 @@ export const WS_URL = 'ws://127.0.0.1:3000/ws';
 type WebSocketCallbacks = {
   onTelemetry: (data: Telemetry) => void;
   onOutput: (data: OutputState) => void;
+  onOutputAck: (message: OutputAck) => void;
   onReady: () => void;
   onError: (message: string) => void;
   onClose: () => void;
@@ -59,6 +61,18 @@ export function createWebSocketClient(
         callbacks.onOutput(message.data);
         receivedOutput = true;
         markReady();
+        break;
+
+      case 'outputAck':
+        if (
+          typeof message.requestId !== 'string' ||
+          typeof message.data?.outputEnabled !== 'boolean'
+        ) {
+          callbacks.onError('Server poslal neplatné potvrdenie.');
+          return;
+        }
+
+        callbacks.onOutputAck(message);
         break;
 
       case 'error':
