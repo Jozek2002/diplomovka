@@ -27,36 +27,44 @@ export type MonitorColors = {
   notice: string;
 };
 
+export const fonts = {
+  regular: 'Manrope_400Regular',
+  medium: 'Manrope_500Medium',
+  semibold: 'Manrope_600SemiBold',
+  bold: 'Manrope_700Bold',
+  extraBold: 'Manrope_800ExtraBold',
+};
+
 const lightColors: MonitorColors = {
-  background: '#F2EFE7',
-  surface: '#FCFAF5',
-  text: '#252923',
-  muted: '#666B60',
-  line: '#D8D5CA',
-  olive: '#46543A',
-  oliveSoft: '#E8EBE0',
-  orange: '#B94F2D',
-  orangeSoft: '#F5E8DD',
-  error: '#993D32',
-  errorSoft: '#F7E8E3',
-  onAccent: '#FCFAF5',
-  notice: '#EBE6D9',
+  background: '#F5F6F8',
+  surface: '#FFFFFF',
+  text: '#14213A',
+  muted: '#687487',
+  line: '#E8EBF0',
+  olive: '#172B4D',
+  oliveSoft: '#EDF1F7',
+  orange: '#FF6B35',
+  orangeSoft: '#FFF0E8',
+  error: '#B83A4B',
+  errorSoft: '#FFF0F2',
+  onAccent: '#FFFFFF',
+  notice: '#FFF5EE',
 };
 
 const darkColors: MonitorColors = {
-  background: '#191D19',
-  surface: '#232923',
-  text: '#EEEADF',
-  muted: '#ADB4A5',
-  line: '#414B3D',
-  olive: '#B0C394',
-  oliveSoft: '#2C392A',
-  orange: '#ED9B73',
-  orangeSoft: '#3B2D25',
-  error: '#F0A89B',
-  errorSoft: '#402925',
-  onAccent: '#191D19',
-  notice: '#302F25',
+  background: '#0F1623',
+  surface: '#182234',
+  text: '#F3F5FA',
+  muted: '#A8B4C7',
+  line: '#2C3950',
+  olive: '#C2D3F0',
+  oliveSoft: '#25354D',
+  orange: '#FF9A70',
+  orangeSoft: '#392B29',
+  error: '#FFA6B3',
+  errorSoft: '#3B2530',
+  onAccent: '#14213A',
+  notice: '#302826',
 };
 
 type ThemeContextValue = {
@@ -66,7 +74,8 @@ type ThemeContextValue = {
   isDark: boolean;
 };
 
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+const ThemeContext =
+  createContext<ThemeContextValue | null>(null);
 
 export function MonitorThemeProvider({
   children,

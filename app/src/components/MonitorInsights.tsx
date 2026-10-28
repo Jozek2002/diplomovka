@@ -16,7 +16,11 @@ import {
 
 import type { Telemetry } from '@/types/iot';
 
-import { useMonitorTheme } from '@/theme/monitor-theme';
+import {
+  fonts,
+  useMonitorTheme,
+} from '@/theme/monitor-theme';
+
 import type { MonitorColors } from '@/theme/monitor-theme';
 
 export type EventKind =
@@ -49,12 +53,6 @@ type ChartPoint = {
 
 const SAMPLE_LIMIT = 60;
 const EVENT_LIMIT = 20;
-
-const monoFont = Platform.select({
-  ios: 'Menlo',
-  android: 'monospace',
-  default: 'monospace',
-});
 
 function formatTime(value: number): string {
   return new Date(value).toLocaleTimeString('sk-SK');
@@ -699,15 +697,25 @@ export function MonitorInsights({
 
 function createStyles(colors: MonitorColors) {
   return StyleSheet.create({
-    container: { gap: 24 },
+    container: {
+      gap: 24,
+    },
     card: {
-      padding: 22,
-      borderRadius: 6,
+      padding: 24,
+      borderRadius: 24,
       borderWidth: 1,
       borderColor: colors.line,
       backgroundColor: colors.surface,
-      gap: 18,
+      gap: 20,
       minWidth: 0,
+      shadowColor: '#0D1B32',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.035,
+      shadowRadius: 16,
+      elevation: 1,
     },
     headingRow: {
       flexDirection: 'row',
@@ -722,72 +730,78 @@ function createStyles(colors: MonitorColors) {
       gap: 9,
     },
     sectionNumber: {
-      fontFamily: monoFont,
+      fontFamily: fonts.bold,
       fontSize: 11,
       color: colors.orange,
     },
     sectionTitle: {
-      fontFamily: monoFont,
+      fontFamily: fonts.bold,
       fontSize: 11,
-      fontWeight: '700',
-      letterSpacing: 1,
+      letterSpacing: 0.7,
       color: colors.muted,
     },
     title: {
+      fontFamily: fonts.bold,
       fontSize: 21,
-      fontWeight: '600',
-      letterSpacing: -0.4,
+      letterSpacing: -0.6,
       color: colors.text,
     },
     body: {
+      fontFamily: fonts.regular,
       fontSize: 13,
-      lineHeight: 21,
+      lineHeight: 22,
       color: colors.muted,
     },
     small: {
+      fontFamily: fonts.regular,
       fontSize: 11,
-      lineHeight: 18,
+      lineHeight: 19,
       color: colors.muted,
     },
+
     choices: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 8,
     },
     choice: {
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 11,
       borderWidth: 1,
       borderColor: colors.line,
-      borderRadius: 4,
+      borderRadius: 100,
+      backgroundColor: colors.surface,
     },
     choiceSelected: {
       backgroundColor: colors.oliveSoft,
       borderColor: colors.olive,
     },
     choiceText: {
+      fontFamily: fonts.semibold,
       fontSize: 12,
       color: colors.text,
     },
     selectedText: {
+      fontFamily: fonts.bold,
       color: colors.olive,
-      fontWeight: '600',
     },
     notice: {
-      padding: 12,
-      borderLeftWidth: 2,
-      borderLeftColor: colors.orange,
-      backgroundColor: colors.background,
+      padding: 14,
+      borderRadius: 14,
+      backgroundColor: colors.notice,
     },
-    chartBlock: { gap: 12 },
+
+    chartBlock: {
+      gap: 14,
+    },
     chartLatest: {
-      fontFamily: monoFont,
-      fontSize: 15,
-      fontWeight: '600',
+      fontFamily: fonts.extraBold,
+      fontSize: 22,
+      letterSpacing: -0.7,
     },
     chartWithScale: {
       flexDirection: 'row',
-      gap: 8,
+      gap: 10,
     },
     verticalScale: {
       width: 42,
@@ -796,7 +810,7 @@ function createStyles(colors: MonitorColors) {
       alignItems: 'flex-end',
     },
     axis: {
-      fontFamily: monoFont,
+      fontFamily: fonts.medium,
       fontSize: 9,
       lineHeight: 15,
       color: colors.muted,
@@ -807,7 +821,7 @@ function createStyles(colors: MonitorColors) {
       position: 'relative',
       overflow: 'hidden',
       backgroundColor: colors.background,
-      borderRadius: 4,
+      borderRadius: 14,
     },
     gridLine: {
       position: 'absolute',
@@ -819,6 +833,7 @@ function createStyles(colors: MonitorColors) {
     segment: {
       position: 'absolute',
       height: 2,
+      borderRadius: 1,
     },
     dot: {
       position: 'absolute',
@@ -844,7 +859,7 @@ function createStyles(colors: MonitorColors) {
       alignItems: 'center',
     },
     timeAxis: {
-      marginLeft: 50,
+      marginLeft: 52,
       flexDirection: 'row',
       justifyContent: 'space-between',
       gap: 10,
@@ -852,36 +867,43 @@ function createStyles(colors: MonitorColors) {
     divider: {
       height: 1,
       backgroundColor: colors.line,
+      marginVertical: 5,
     },
+
     tableRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      paddingBottom: 12,
+      paddingVertical: 6,
+      paddingBottom: 16,
       borderBottomWidth: 1,
       borderBottomColor: colors.line,
     },
     tableLabel: {
       flex: 1,
+      fontFamily: fonts.medium,
       fontSize: 12,
       color: colors.text,
     },
     tableValue: {
       flex: 1,
-      fontFamily: monoFont,
-      fontSize: 13,
+      fontFamily: fonts.bold,
+      fontSize: 16,
       textAlign: 'right',
       color: colors.text,
+      fontVariant: ['tabular-nums'],
     },
+
     empty: {
-      paddingVertical: 24,
+      paddingVertical: 30,
+      fontFamily: fonts.regular,
       fontSize: 12,
       textAlign: 'center',
       color: colors.muted,
     },
     eventRow: {
-      gap: 8,
-      paddingBottom: 14,
+      gap: 10,
+      paddingBottom: 18,
       borderBottomWidth: 1,
       borderBottomColor: colors.line,
     },
@@ -891,16 +913,25 @@ function createStyles(colors: MonitorColors) {
       gap: 12,
     },
     eventKind: {
-      fontFamily: monoFont,
+      fontFamily: fonts.bold,
       fontSize: 10,
-      fontWeight: '700',
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      borderRadius: 8,
+      backgroundColor: colors.background,
+      overflow: 'hidden',
     },
     eventMessage: {
+      fontFamily: fonts.regular,
       fontSize: 13,
-      lineHeight: 21,
+      lineHeight: 22,
       color: colors.text,
     },
-    disabled: { opacity: 0.4 },
-    pressed: { opacity: 0.7 },
+    disabled: {
+      opacity: 0.4,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
   });
 }

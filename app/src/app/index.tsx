@@ -43,7 +43,11 @@ import type {
   SampleWindow,
 } from '@/components/MonitorInsights';
 
-import { useMonitorTheme } from '@/theme/monitor-theme';
+import {
+  fonts,
+  useMonitorTheme,
+} from '@/theme/monitor-theme';
+
 import type { MonitorColors } from '@/theme/monitor-theme';
 
 type Tab = 'overview' | 'analysis' | 'events' | 'settings';
@@ -614,11 +618,13 @@ export default function HomeScreen() {
               <Text
                 style={[
                   styles.tabText,
-                  tab === item.id &&
-                    styles.selectedText,
+                  tab === item.id && {
+                    color: colors.onAccent,
+                    fontFamily: fonts.bold,
+                  },
                 ]}
-              >
-                {item.label}
+            >
+              {item.label}
               </Text>
             </Pressable>
           ))}
@@ -1258,7 +1264,7 @@ export default function HomeScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.mono}>
-          IoT Monitor / Laboratórny panel
+          IoT Monitor / Riadenie a telemetria
         </Text>
 
         <Text style={styles.mono}>
@@ -1277,11 +1283,11 @@ function createStyles(colors: MonitorColors) {
     },
     content: {
       width: '100%',
-      maxWidth: 1320,
+      maxWidth: 1400,
       alignSelf: 'center',
       paddingHorizontal: 36,
-      paddingTop: 36,
-      paddingBottom: 28,
+      paddingTop: 32,
+      paddingBottom: 32,
       gap: 24,
     },
     compact: {
@@ -1289,15 +1295,14 @@ function createStyles(colors: MonitorColors) {
       paddingTop: 24,
       gap: 18,
     },
+
     header: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       justifyContent: 'space-between',
       alignItems: 'center',
       gap: 20,
-      paddingBottom: 24,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.line,
+      paddingBottom: 8,
     },
     brand: {
       flexDirection: 'row',
@@ -1306,31 +1311,32 @@ function createStyles(colors: MonitorColors) {
       flexShrink: 1,
     },
     brandMark: {
-      width: 44,
+      width: 48,
       height: 48,
       flexShrink: 0,
-      backgroundColor: colors.olive,
-      borderRadius: 4,
+      backgroundColor: '#FF6B35',
+      borderRadius: 17,
       justifyContent: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: 12,
       gap: 5,
     },
     brandLine: {
       width: 24,
       height: 3,
-      backgroundColor: colors.onAccent,
+      borderRadius: 2,
+      backgroundColor: '#FFFFFF',
     },
     eyebrow: {
-      fontFamily: monoFont,
+      fontFamily: fonts.medium,
       fontSize: 10,
-      letterSpacing: 1.1,
+      letterSpacing: 0.8,
       color: colors.muted,
       marginBottom: 5,
     },
     title: {
+      fontFamily: fonts.extraBold,
       fontSize: 30,
-      fontWeight: '700',
-      letterSpacing: -1,
+      letterSpacing: -1.1,
       color: colors.text,
     },
     headerMeta: {
@@ -1346,9 +1352,9 @@ function createStyles(colors: MonitorColors) {
       borderWidth: 1,
       borderColor: colors.line,
       backgroundColor: colors.surface,
-      borderRadius: 4,
-      paddingVertical: 9,
-      paddingHorizontal: 12,
+      borderRadius: 100,
+      paddingVertical: 10,
+      paddingHorizontal: 15,
     },
     statusDot: {
       width: 7,
@@ -1356,8 +1362,8 @@ function createStyles(colors: MonitorColors) {
       borderRadius: 4,
     },
     badgeText: {
+      fontFamily: fonts.semibold,
       fontSize: 12,
-      fontWeight: '600',
       color: colors.text,
     },
     mono: {
@@ -1366,12 +1372,14 @@ function createStyles(colors: MonitorColors) {
       lineHeight: 17,
       color: colors.muted,
     },
+
     toolbar: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 18,
+      gap: 20,
+      paddingVertical: 8,
     },
     choices: {
       flexDirection: 'row',
@@ -1380,8 +1388,8 @@ function createStyles(colors: MonitorColors) {
     },
     tab: {
       paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderRadius: 4,
+      paddingHorizontal: 19,
+      borderRadius: 100,
       borderWidth: 1,
       borderColor: colors.line,
       backgroundColor: colors.surface,
@@ -1391,22 +1399,27 @@ function createStyles(colors: MonitorColors) {
       backgroundColor: colors.oliveSoft,
     },
     tabText: {
+      fontFamily: fonts.semibold,
       fontSize: 13,
       color: colors.text,
     },
     selectedText: {
+      fontFamily: fonts.bold,
       color: colors.olive,
-      fontWeight: '600',
     },
-    themeControl: { gap: 7 },
+    themeControl: {
+      gap: 7,
+    },
     smallChoice: {
       paddingVertical: 8,
-      paddingHorizontal: 10,
-      borderRadius: 4,
+      paddingHorizontal: 12,
+      borderRadius: 100,
       borderWidth: 1,
       borderColor: colors.line,
+      backgroundColor: colors.surface,
     },
     smallChoiceText: {
+      fontFamily: fonts.medium,
       fontSize: 11,
       color: colors.text,
     },
@@ -1414,31 +1427,33 @@ function createStyles(colors: MonitorColors) {
       borderColor: colors.olive,
       backgroundColor: colors.oliveSoft,
     },
+
     notice: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       alignItems: 'center',
       gap: 12,
-      padding: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
       backgroundColor: colors.notice,
-      borderLeftWidth: 3,
-      borderLeftColor: colors.orange,
+      borderRadius: 16,
     },
     noticeTag: {
-      fontFamily: monoFont,
+      fontFamily: fonts.bold,
       fontSize: 10,
-      fontWeight: '700',
-      letterSpacing: 0.6,
-      color: colors.orange,
+      letterSpacing: 0.5,
+      color: colors.text,
     },
     noticeText: {
       flexGrow: 1,
       flexShrink: 1,
       flexBasis: 260,
+      fontFamily: fonts.regular,
       fontSize: 12,
-      lineHeight: 19,
+      lineHeight: 20,
       color: colors.muted,
     },
+
     workspace: {
       gap: 24,
       alignItems: 'stretch',
@@ -1462,13 +1477,21 @@ function createStyles(colors: MonitorColors) {
       gap: 24,
     },
     card: {
-      padding: 22,
-      borderRadius: 6,
+      padding: 24,
+      borderRadius: 24,
       borderWidth: 1,
       borderColor: colors.line,
       backgroundColor: colors.surface,
-      gap: 18,
+      gap: 20,
       minWidth: 0,
+      shadowColor: '#0D1B32',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.035,
+      shadowRadius: 16,
+      elevation: 1,
     },
     sectionHeader: {
       flexDirection: 'row',
@@ -1476,32 +1499,33 @@ function createStyles(colors: MonitorColors) {
       gap: 9,
     },
     sectionNumber: {
-      fontFamily: monoFont,
+      fontFamily: fonts.bold,
       fontSize: 11,
       color: colors.orange,
     },
     label: {
-      fontFamily: monoFont,
+      fontFamily: fonts.bold,
       fontSize: 9,
-      fontWeight: '600',
-      letterSpacing: 0.8,
-      lineHeight: 15,
+      letterSpacing: 0.7,
+      lineHeight: 16,
       color: colors.muted,
     },
     cardTitle: {
+      fontFamily: fonts.bold,
       fontSize: 21,
-      fontWeight: '600',
-      letterSpacing: -0.4,
+      letterSpacing: -0.6,
       color: colors.text,
     },
     body: {
+      fontFamily: fonts.regular,
       fontSize: 13,
-      lineHeight: 21,
+      lineHeight: 22,
       color: colors.muted,
     },
     small: {
+      fontFamily: fonts.regular,
       fontSize: 12,
-      lineHeight: 19,
+      lineHeight: 20,
       color: colors.muted,
     },
     flexible: {
@@ -1509,21 +1533,25 @@ function createStyles(colors: MonitorColors) {
       flexShrink: 1,
       flexBasis: 0,
       minWidth: 0,
-      gap: 5,
+      gap: 6,
     },
-    protocolList: { gap: 8 },
+
+    protocolList: {
+      gap: 10,
+    },
     protocol: {
-      minHeight: 48,
+      minHeight: 52,
       flexDirection: 'row',
       flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 12,
+      paddingHorizontal: 15,
+      paddingVertical: 13,
       borderWidth: 1,
       borderColor: colors.line,
-      borderRadius: 4,
+      borderRadius: 15,
+      backgroundColor: colors.surface,
     },
     protocolIdentity: {
       flexDirection: 'row',
@@ -1531,36 +1559,36 @@ function createStyles(colors: MonitorColors) {
       gap: 12,
     },
     protocolText: {
+      fontFamily: fonts.semibold,
       fontSize: 13,
-      fontWeight: '600',
       color: colors.text,
     },
     radio: {
-      width: 15,
-      height: 15,
-      borderRadius: 8,
+      width: 17,
+      height: 17,
+      borderRadius: 9,
       borderWidth: 1,
       borderColor: colors.muted,
       alignItems: 'center',
       justifyContent: 'center',
     },
     radioInner: {
-      width: 7,
-      height: 7,
-      borderRadius: 4,
+      width: 9,
+      height: 9,
+      borderRadius: 5,
       backgroundColor: colors.olive,
     },
     micro: {
-      fontFamily: monoFont,
+      fontFamily: fonts.semibold,
       fontSize: 8,
       lineHeight: 14,
-      letterSpacing: 0.5,
+      letterSpacing: 0.4,
       color: colors.muted,
     },
     inset: {
-      padding: 12,
+      padding: 14,
       backgroundColor: colors.background,
-      borderRadius: 4,
+      borderRadius: 14,
       gap: 7,
     },
     endpoint: {
@@ -1570,20 +1598,21 @@ function createStyles(colors: MonitorColors) {
       color: colors.text,
       flexShrink: 1,
     },
+
     button: {
-      minHeight: 46,
+      minHeight: 48,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: 14,
-      borderRadius: 4,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      borderRadius: 100,
       borderWidth: 1,
       borderColor: colors.olive,
       backgroundColor: colors.olive,
     },
     buttonText: {
+      fontFamily: fonts.bold,
       fontSize: 13,
-      fontWeight: '600',
       textAlign: 'center',
       color: colors.onAccent,
     },
@@ -1592,12 +1621,18 @@ function createStyles(colors: MonitorColors) {
       borderColor: colors.line,
     },
     outlineText: {
+      fontFamily: fonts.semibold,
       fontSize: 13,
       textAlign: 'center',
       color: colors.text,
     },
-    disabled: { opacity: 0.45 },
-    pressed: { opacity: 0.75 },
+    disabled: {
+      opacity: 0.45,
+    },
+    pressed: {
+      opacity: 0.75,
+    },
+
     headingRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -1608,17 +1643,16 @@ function createStyles(colors: MonitorColors) {
     metrics: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 14,
+      gap: 16,
     },
     metric: {
       flexGrow: 1,
       flexShrink: 1,
       flexBasis: 230,
       minWidth: 0,
-      padding: 20,
-      borderRadius: 4,
+      padding: 22,
+      borderRadius: 20,
       gap: 20,
-      borderTopWidth: 2,
     },
     reading: {
       flexDirection: 'row',
@@ -1627,13 +1661,13 @@ function createStyles(colors: MonitorColors) {
       gap: 8,
     },
     metricValue: {
-      fontWeight: '600',
-      letterSpacing: -2,
+      fontFamily: fonts.extraBold,
+      letterSpacing: -2.4,
       fontVariant: ['tabular-nums'],
     },
     unit: {
-      fontFamily: monoFont,
-      fontSize: 19,
+      fontFamily: fonts.medium,
+      fontSize: 20,
       color: colors.muted,
     },
     details: {
@@ -1642,18 +1676,19 @@ function createStyles(colors: MonitorColors) {
       gap: 20,
       borderTopWidth: 1,
       borderTopColor: colors.line,
-      paddingTop: 18,
+      paddingTop: 20,
     },
     detail: {
       flexGrow: 1,
       flexBasis: 145,
-      gap: 6,
+      gap: 7,
     },
     detailValue: {
-      fontFamily: monoFont,
-      fontSize: 13,
+      fontFamily: fonts.bold,
+      fontSize: 14,
       color: colors.text,
     },
+
     outputRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1663,46 +1698,46 @@ function createStyles(colors: MonitorColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 14,
-      padding: 16,
-      borderRadius: 4,
-      borderWidth: 1,
-      borderColor: colors.line,
+      padding: 18,
+      borderRadius: 17,
       backgroundColor: colors.background,
     },
     outputIndicator: {
-      width: 12,
-      height: 12,
+      width: 11,
+      height: 11,
       flexShrink: 0,
-      borderRadius: 3,
+      borderRadius: 6,
     },
     outputTitle: {
+      fontFamily: fonts.bold,
       fontSize: 13,
-      fontWeight: '600',
       color: colors.text,
     },
     link: {
+      fontFamily: fonts.semibold,
       fontSize: 12,
       lineHeight: 20,
       color: colors.olive,
     },
+
     errorBox: {
       padding: 18,
-      borderRadius: 4,
-      borderLeftWidth: 3,
-      borderLeftColor: colors.error,
+      borderRadius: 17,
       backgroundColor: colors.errorSoft,
-      gap: 6,
+      gap: 7,
     },
     errorTitle: {
+      fontFamily: fonts.bold,
       fontSize: 14,
-      fontWeight: '600',
       color: colors.error,
     },
     errorText: {
+      fontFamily: fonts.regular,
       fontSize: 13,
-      lineHeight: 21,
+      lineHeight: 22,
       color: colors.error,
     },
+
     settingsGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -1719,7 +1754,7 @@ function createStyles(colors: MonitorColors) {
       flexWrap: 'wrap',
       justifyContent: 'space-between',
       gap: 10,
-      paddingTop: 18,
+      paddingTop: 20,
       borderTopWidth: 1,
       borderTopColor: colors.line,
     },
