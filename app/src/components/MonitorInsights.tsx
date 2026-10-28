@@ -162,7 +162,7 @@ type MiniChartProps = {
   points: ChartPoint[];
 };
 
-function MiniChart({
+export function MiniChart({
   title,
   unit,
   color,

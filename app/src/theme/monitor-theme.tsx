@@ -6,7 +6,6 @@ import {
 } from 'react';
 
 import type { PropsWithChildren } from 'react';
-
 import { useColorScheme } from 'react-native';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
@@ -28,43 +27,43 @@ export type MonitorColors = {
 };
 
 export const fonts = {
-  regular: 'Manrope_400Regular',
-  medium: 'Manrope_500Medium',
-  semibold: 'Manrope_600SemiBold',
-  bold: 'Manrope_700Bold',
-  extraBold: 'Manrope_800ExtraBold',
-};
-
-const lightColors: MonitorColors = {
-  background: '#F5F6F8',
-  surface: '#FFFFFF',
-  text: '#14213A',
-  muted: '#687487',
-  line: '#E8EBF0',
-  olive: '#172B4D',
-  oliveSoft: '#EDF1F7',
-  orange: '#FF6B35',
-  orangeSoft: '#FFF0E8',
-  error: '#B83A4B',
-  errorSoft: '#FFF0F2',
-  onAccent: '#FFFFFF',
-  notice: '#FFF5EE',
+  regular: 'DMSans_400Regular',
+  medium: 'DMSans_500Medium',
+  semibold: 'DMSans_600SemiBold',
+  bold: 'DMSans_700Bold',
+  extraBold: 'DMSans_700Bold',
 };
 
 const darkColors: MonitorColors = {
-  background: '#0F1623',
-  surface: '#182234',
-  text: '#F3F5FA',
-  muted: '#A8B4C7',
-  line: '#2C3950',
-  olive: '#C2D3F0',
-  oliveSoft: '#25354D',
-  orange: '#FF9A70',
-  orangeSoft: '#392B29',
-  error: '#FFA6B3',
-  errorSoft: '#3B2530',
-  onAccent: '#14213A',
-  notice: '#302826',
+  background: '#101214',
+  surface: '#1B2024',
+  text: '#F2F5F4',
+  muted: '#A1AAAE',
+  line: '#30383C',
+  olive: '#00C4A7',
+  oliveSoft: '#143B35',
+  orange: '#43B9DB',
+  orangeSoft: '#173441',
+  error: '#FF9DA5',
+  errorSoft: '#40272D',
+  onAccent: '#071C18',
+  notice: '#151A1D',
+};
+
+const lightColors: MonitorColors = {
+  background: '#EDF1F0',
+  surface: '#FFFFFF',
+  text: '#182723',
+  muted: '#5F706A',
+  line: '#DCE5E1',
+  olive: '#007C69',
+  oliveSoft: '#DDF3EB',
+  orange: '#087C9E',
+  orangeSoft: '#E1F1F7',
+  error: '#B52D42',
+  errorSoft: '#FDEBF0',
+  onAccent: '#FFFFFF',
+  notice: '#E6EEEA',
 };
 
 type ThemeContextValue = {
@@ -83,7 +82,7 @@ export function MonitorThemeProvider({
   const systemScheme = useColorScheme();
 
   const [preference, setPreference] =
-    useState<ThemePreference>('system');
+    useState<ThemePreference>('dark');
 
   const isDark =
     preference === 'dark' ||
@@ -109,7 +108,7 @@ export function MonitorThemeProvider({
 export function useMonitorTheme() {
   const context = useContext(ThemeContext);
 
-  if (context === null) {
+  if (!context) {
     throw new Error(
       'Chýba MonitorThemeProvider. Skontroluj _layout.tsx.'
     );
