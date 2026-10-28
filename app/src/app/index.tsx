@@ -63,6 +63,9 @@ export default function HomeScreen() {
   const pendingRequestId =
     useRef<string | null>(null);
 
+  const pendingStartedAt =
+  useRef<number | null>(null);
+
   const socketRef =
     useRef<WebSocket | null>(null);
 
@@ -99,6 +102,7 @@ export default function HomeScreen() {
   function releaseResources() {
     session.current += 1;
     pendingRequestId.current = null;
+    pendingStartedAt.current = null;
 
     clearTimers();
 
@@ -270,13 +274,16 @@ export default function HomeScreen() {
         },
 
         onOutputAck: (message) => {
+          const receivedAt = performance.now();
+
           if (
             !isCurrentSession() ||
-            message.requestId !==
-              pendingRequestId.current
+            message.requestId !== pendingRequestId.current
           ) {
             return;
           }
+
+          const startedAt = pendingStartedAt.current;
 
           if (outputTimer.current !== null) {
             clearTimeout(outputTimer.current);
@@ -284,15 +291,24 @@ export default function HomeScreen() {
           }
 
           pendingRequestId.current = null;
+          pendingStartedAt.current = null;
 
-          setOutputEnabled(
-            message.data.outputEnabled
-          );
-
+          setOutputEnabled(message.data.outputEnabled);
           setOutputBusy(false);
 
+          const rttMs =
+            startedAt === null
+              ? null
+              : receivedAt - startedAt;
+
+          const timingText =
+            rttMs === null
+              ? ''
+              : ` Aplikačné RTT: ${rttMs.toFixed(2)} ms.`;
+
           console.log(
-            `[WS ACK] Potvrdený príkaz ${message.requestId}`
+            `[WS ACK] ${message.requestId}` +
+              timingText
           );
 
           addEvent(
@@ -301,7 +317,9 @@ export default function HomeScreen() {
               message.data.outputEnabled
                 ? 'zapnutý'
                 : 'vypnutý'
-            } výstup. ID: ${message.requestId}`
+            } výstup.` +
+              timingText +
+              ` ID: ${message.requestId}`
           );
         },
 
@@ -423,13 +441,16 @@ export default function HomeScreen() {
           }
         }, 5000);
 
-        socket.send(
-          JSON.stringify({
-            type: 'setOutput',
-            requestId,
-            outputEnabled: nextValue,
-          })
-        );
+        const payload = JSON.stringify({
+          type: 'setOutput',
+          requestId,
+          outputEnabled: nextValue,
+        });
+
+        pendingStartedAt.current = performance.now();
+
+        socket.send(payload);
+
       } catch (sendError) {
         stopConnection(
           errorMessage(sendError)
@@ -440,23 +461,38 @@ export default function HomeScreen() {
     }
 
     try {
+      const options = {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          outputEnabled: nextValue,
+        }),
+      };
+
+      const startedAt = performance.now();
+
       const result =
-        await requestJson<OutputState>('/output', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            outputEnabled: nextValue,
-          }),
-        });
+        await requestJson<OutputState>(
+          '/output',
+          options
+        );
+
+      const receivedAt = performance.now();
 
       if (session.current !== currentSession) {
         return;
       }
 
+      const rttMs = receivedAt - startedAt;
+
       setOutputEnabled(result.outputEnabled);
       setOutputBusy(false);
+
+      console.log(
+        `[HTTP ACK] Aplikačné RTT: ${rttMs.toFixed(2)} ms`
+      );
 
       addEvent(
         'success',
@@ -464,7 +500,7 @@ export default function HomeScreen() {
           result.outputEnabled
             ? 'zapnutý'
             : 'vypnutý'
-        } výstup.`
+        } výstup. Aplikačné RTT: ${rttMs.toFixed(2)} ms.`
       );
     } catch (requestError) {
       if (session.current === currentSession) {
