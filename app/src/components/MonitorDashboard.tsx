@@ -40,6 +40,10 @@ import type {
   Telemetry,
 } from '@/types/iot';
 
+import {
+  CommandMeasurementsPanel,
+} from '@/components/CommandMeasurementsPanel';
+
 import { HTTP_URL } from '@/services/http-client';
 import { WS_URL } from '@/services/websocket-client';
 
@@ -729,6 +733,7 @@ export function MonitorDashboard({
 
           {tab === 'settings' && (
             <View style={styles.overview}>
+              <CommandMeasurementsPanel />
               <View style={styles.settingsPanel}>
                 <Text style={styles.panelTitle}>Vzhľad aplikácie</Text>
 
@@ -818,7 +823,8 @@ export function MonitorDashboard({
                 <Text style={styles.body}>
                   Údaje generuje lokálny simulátor.
                   HTTP/REST a WebSocket sú implementované.
-                  MQTT a meranie RTT zatiaľ nie.
+                  Meranie aplikačného RTT je dostupné.
+                  MQTT zatiaľ nie je implementované.
                 </Text>
 
                 <Text selectable style={styles.address}>
@@ -844,7 +850,7 @@ export function MonitorDashboard({
               IoT Monitor · Diplomová práca
             </Text>
             <Text style={styles.caption}>
-              Bez merania RTT
+              Lokálne meranie aplikačného RTT
             </Text>
           </View>
         </View>

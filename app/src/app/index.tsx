@@ -4,10 +4,14 @@ import {
   useState,
 } from 'react';
 
-import { requestJson } from '@/services/http-client';
+import {
+  HTTP_URL,
+  requestJson,
+} from '@/services/http-client';
 
 import {
   createWebSocketClient,
+  WS_URL,
 } from '@/services/websocket-client';
 
 import type {
@@ -25,11 +29,30 @@ import {
   MonitorDashboard,
 } from '@/components/MonitorDashboard';
 
-function errorMessage(error: unknown): string {
-  if (
+import {
+  finishMeasurement,
+  startMeasurement,
+} from '@/services/command-measurements';
+
+import type {
+  MeasurementOutcome,
+} from '@/services/command-measurements';
+
+type ActiveCommand = {
+  measurementId: string;
+  requestId: string;
+  requestedOutput: boolean;
+};
+
+function isTimeout(error: unknown): boolean {
+  return (
     error instanceof Error &&
     error.name === 'AbortError'
-  ) {
+  );
+}
+
+function errorMessage(error: unknown): string {
+  if (isTimeout(error)) {
     return 'Server neodpovedal do 5 sekúnd.';
   }
 
@@ -59,12 +82,10 @@ export default function HomeScreen() {
 
   const session = useRef(0);
   const requestCounter = useRef(0);
+  const sessionId = useRef('');
 
-  const pendingRequestId =
-    useRef<string | null>(null);
-
-  const pendingStartedAt =
-  useRef<number | null>(null);
+  const activeCommand =
+    useRef<ActiveCommand | null>(null);
 
   const socketRef =
     useRef<WebSocket | null>(null);
@@ -99,11 +120,31 @@ export default function HomeScreen() {
     }
   }
 
-  function releaseResources() {
-    session.current += 1;
-    pendingRequestId.current = null;
-    pendingStartedAt.current = null;
+  function endActiveCommand(
+    outcome: MeasurementOutcome,
+    detail: string
+  ) {
+    const command = activeCommand.current;
 
+    if (!command) {
+      return;
+    }
+
+    activeCommand.current = null;
+
+    finishMeasurement(command.measurementId, {
+      outcome,
+      detail,
+    });
+  }
+
+  function releaseResources(
+    outcome: MeasurementOutcome = 'interrupted',
+    detail = 'Relácia bola ukončená.'
+  ) {
+    session.current += 1;
+
+    endActiveCommand(outcome, detail);
     clearTimers();
 
     const socket = socketRef.current;
@@ -121,7 +162,10 @@ export default function HomeScreen() {
   function stopConnection(
     message: string | null = null
   ) {
-    releaseResources();
+    releaseResources(
+      message === null ? 'interrupted' : 'error',
+      message ?? 'Používateľ ukončil spojenie.'
+    );
 
     setStatus('disconnected');
     setTelemetry(null);
@@ -129,19 +173,18 @@ export default function HomeScreen() {
     setOutputBusy(false);
     setError(message);
 
-    if (message !== null) {
-      addEvent('error', message);
-    } else {
-      addEvent(
-        'info',
-        'Používateľ ukončil spojenie.'
-      );
-    }
+    addEvent(
+      message === null ? 'info' : 'error',
+      message ?? 'Používateľ ukončil spojenie.'
+    );
   }
 
   useEffect(() => {
     return () => {
-      releaseResources();
+      releaseResources(
+        'interrupted',
+        'Obrazovka bola odpojená.'
+      );
     };
   }, []);
 
@@ -154,7 +197,6 @@ export default function HomeScreen() {
     }
 
     const currentSession = session.current;
-
     let cancelled = false;
 
     let timer:
@@ -198,16 +240,23 @@ export default function HomeScreen() {
     };
   }, [status, protocol]);
 
-  async function connectHttp() {
+  function prepareConnection() {
     releaseResources();
 
-    const currentSession = session.current;
+    sessionId.current =
+      `session-${Date.now()}-${session.current}`;
 
     setStatus('connecting');
     setError(null);
     setTelemetry(null);
     setOutputEnabled(false);
     setOutputBusy(false);
+
+    return session.current;
+  }
+
+  async function connectHttp() {
+    const currentSession = prepareConnection();
 
     try {
       const [data, output] = await Promise.all([
@@ -237,19 +286,10 @@ export default function HomeScreen() {
   }
 
   function connectWebSocket() {
-    releaseResources();
+    const currentSession = prepareConnection();
 
-    const currentSession = session.current;
-
-    setStatus('connecting');
-    setError(null);
-    setTelemetry(null);
-    setOutputEnabled(false);
-    setOutputBusy(false);
-
-    function isCurrentSession() {
-      return session.current === currentSession;
-    }
+    const isCurrentSession = () =>
+      session.current === currentSession;
 
     try {
       connectTimer.current = setTimeout(() => {
@@ -274,37 +314,70 @@ export default function HomeScreen() {
         },
 
         onOutputAck: (message) => {
-          const receivedAt = performance.now();
+          const endedAt = performance.now();
+          const command = activeCommand.current;
 
           if (
             !isCurrentSession() ||
-            message.requestId !== pendingRequestId.current
+            command === null ||
+            message.requestId !== command.requestId
           ) {
             return;
           }
 
-          const startedAt = pendingStartedAt.current;
+          activeCommand.current = null;
 
           if (outputTimer.current !== null) {
             clearTimeout(outputTimer.current);
             outputTimer.current = null;
           }
 
-          pendingRequestId.current = null;
-          pendingStartedAt.current = null;
+          if (
+            message.data.outputEnabled !==
+            command.requestedOutput
+          ) {
+            finishMeasurement(
+              command.measurementId,
+              {
+                outcome: 'error',
+                endedAt,
+                confirmedOutput:
+                  message.data.outputEnabled,
+                detail:
+                  'Potvrdený stav nezodpovedá požiadavke.',
+              }
+            );
 
-          setOutputEnabled(message.data.outputEnabled);
+            stopConnection(
+              'Server potvrdil iný stav výstupu, ' +
+                'než bol požadovaný.'
+            );
+
+            return;
+          }
+
+          const measurement = finishMeasurement(
+            command.measurementId,
+            {
+              outcome: 'confirmed',
+              endedAt,
+              confirmedOutput:
+                message.data.outputEnabled,
+            }
+          );
+
+          setOutputEnabled(
+            message.data.outputEnabled
+          );
+
           setOutputBusy(false);
 
-          const rttMs =
-            startedAt === null
-              ? null
-              : receivedAt - startedAt;
-
           const timingText =
-            rttMs === null
+            measurement?.rttMs == null
               ? ''
-              : ` Aplikačné RTT: ${rttMs.toFixed(2)} ms.`;
+              : ` Aplikačné RTT: ${
+                  measurement.rttMs.toFixed(2)
+                } ms.`;
 
           console.log(
             `[WS ACK] ${message.requestId}` +
@@ -313,7 +386,7 @@ export default function HomeScreen() {
 
           addEvent(
             'success',
-            `WebSocket: server potvrdil ${
+            `WebSocket: potvrdený ${
               message.data.outputEnabled
                 ? 'zapnutý'
                 : 'vypnutý'
@@ -389,7 +462,7 @@ export default function HomeScreen() {
     if (
       !connected ||
       outputBusy ||
-      pendingRequestId.current !== null
+      activeCommand.current !== null
     ) {
       return;
     }
@@ -399,11 +472,16 @@ export default function HomeScreen() {
     setOutputBusy(true);
     setError(null);
 
+    requestCounter.current += 1;
+
+    const requestId =
+      `req-${Date.now()}-${requestCounter.current}`;
+
     addEvent(
       'command',
       `${protocol}: požadované ${
         nextValue ? 'zapnutie' : 'vypnutie'
-      } výstupu.`
+      } výstupu. ID: ${requestId}`
     );
 
     if (protocol === 'WebSocket') {
@@ -420,38 +498,52 @@ export default function HomeScreen() {
         return;
       }
 
-      requestCounter.current += 1;
+      const payload = JSON.stringify({
+        type: 'setOutput',
+        requestId,
+        outputEnabled: nextValue,
+      });
 
-      const requestId =
-        `req-${Date.now()}-${requestCounter.current}`;
+      outputTimer.current = setTimeout(() => {
+        if (
+          session.current === currentSession &&
+          activeCommand.current?.requestId ===
+            requestId
+        ) {
+          endActiveCommand(
+            'timeout',
+            'Potvrdenie neprišlo do 5 sekúnd.'
+          );
 
-      pendingRequestId.current = requestId;
+          stopConnection(
+            `Server nepotvrdil príkaz ${requestId}. ` +
+              'Stav výstupu je neistý; znovu sa pripoj.'
+          );
+        }
+      }, 5000);
+
+      const measurementId = startMeasurement({
+        sessionId: sessionId.current,
+        protocol,
+        endpoint: WS_URL,
+        requestId,
+        requestedOutput: nextValue,
+      });
+
+      activeCommand.current = {
+        measurementId,
+        requestId,
+        requestedOutput: nextValue,
+      };
 
       try {
-        outputTimer.current = setTimeout(() => {
-          if (
-            session.current === currentSession &&
-            pendingRequestId.current === requestId
-          ) {
-            stopConnection(
-              `Server nepotvrdil príkaz ${requestId}. ` +
-                'Stav výstupu je neistý; znovu sa pripoj ' +
-                'na načítanie aktuálneho stavu.'
-            );
-          }
-        }, 5000);
-
-        const payload = JSON.stringify({
-          type: 'setOutput',
-          requestId,
-          outputEnabled: nextValue,
-        });
-
-        pendingStartedAt.current = performance.now();
-
         socket.send(payload);
-
       } catch (sendError) {
+        endActiveCommand(
+          'error',
+          errorMessage(sendError)
+        );
+
         stopConnection(
           errorMessage(sendError)
         );
@@ -460,56 +552,117 @@ export default function HomeScreen() {
       return;
     }
 
+    const options = {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        outputEnabled: nextValue,
+      }),
+    };
+
+    const measurementId = startMeasurement({
+      sessionId: sessionId.current,
+      protocol,
+      endpoint: `${HTTP_URL}/output`,
+      requestId,
+      requestedOutput: nextValue,
+    });
+
+    activeCommand.current = {
+      measurementId,
+      requestId,
+      requestedOutput: nextValue,
+    };
+
     try {
-      const options = {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          outputEnabled: nextValue,
-        }),
-      };
-
-      const startedAt = performance.now();
-
       const result =
         await requestJson<OutputState>(
           '/output',
           options
         );
 
-      const receivedAt = performance.now();
+      const endedAt = performance.now();
 
-      if (session.current !== currentSession) {
+      if (
+        session.current !== currentSession ||
+        activeCommand.current?.measurementId !==
+          measurementId
+      ) {
         return;
       }
 
-      const rttMs = receivedAt - startedAt;
+      activeCommand.current = null;
+
+      if (result.outputEnabled !== nextValue) {
+        finishMeasurement(measurementId, {
+          outcome: 'error',
+          endedAt,
+          confirmedOutput: result.outputEnabled,
+          detail:
+            'Potvrdený stav nezodpovedá požiadavke.',
+        });
+
+        stopConnection(
+          'Server potvrdil iný stav výstupu, ' +
+            'než bol požadovaný.'
+        );
+
+        return;
+      }
+
+      const measurement = finishMeasurement(
+        measurementId,
+        {
+          outcome: 'confirmed',
+          endedAt,
+          confirmedOutput: result.outputEnabled,
+        }
+      );
 
       setOutputEnabled(result.outputEnabled);
       setOutputBusy(false);
 
+      const timingText =
+        measurement?.rttMs == null
+          ? ''
+          : ` Aplikačné RTT: ${
+              measurement.rttMs.toFixed(2)
+            } ms.`;
+
       console.log(
-        `[HTTP ACK] Aplikačné RTT: ${rttMs.toFixed(2)} ms`
+        `[HTTP ACK] ${requestId}` +
+          timingText
       );
 
       addEvent(
         'success',
-        `HTTP/REST: server potvrdil ${
+        `HTTP/REST: potvrdený ${
           result.outputEnabled
             ? 'zapnutý'
             : 'vypnutý'
-        } výstup. Aplikačné RTT: ${rttMs.toFixed(2)} ms.`
+        } výstup.` +
+          timingText +
+          ` ID: ${requestId}`
       );
     } catch (requestError) {
-      if (session.current === currentSession) {
-        stopConnection(
-          'Zmenu výstupu sa nepodarilo potvrdiť. ' +
-            errorMessage(requestError) +
-            ' Znovu sa pripoj na načítanie aktuálneho stavu.'
-        );
+      if (session.current !== currentSession) {
+        return;
       }
+
+      endActiveCommand(
+        isTimeout(requestError)
+          ? 'timeout'
+          : 'error',
+        errorMessage(requestError)
+      );
+
+      stopConnection(
+        'Zmenu výstupu sa nepodarilo potvrdiť. ' +
+          errorMessage(requestError) +
+          ' Znovu sa pripoj na načítanie stavu.'
+      );
     }
   }
 
