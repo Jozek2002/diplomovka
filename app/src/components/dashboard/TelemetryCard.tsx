@@ -164,7 +164,6 @@ export function TelemetryCard({
         >
           <View style={styles.sensorTileHeader}>
             <View style={[styles.sensorTag, { backgroundColor: colors.surface }]}>
-              <Text style={{ fontSize: 13 }}>🌡️</Text>
               <Text style={[styles.sensorTagText, { color: colors.text, fontFamily: fonts.medium }]}>
                 Teplota
               </Text>
@@ -200,7 +199,6 @@ export function TelemetryCard({
         >
           <View style={styles.sensorTileHeader}>
             <View style={[styles.sensorTag, { backgroundColor: colors.surface }]}>
-              <Text style={{ fontSize: 13 }}>💧</Text>
               <Text style={[styles.sensorTagText, { color: colors.text, fontFamily: fonts.medium }]}>
                 Vlhkosť
               </Text>

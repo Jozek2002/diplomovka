@@ -36,6 +36,7 @@ export function HeaderBar({
   status,
   protocol,
   deviceId,
+  desktop,
 }: HeaderBarProps) {
   const { colors, isDark, setPreference } = useMonitorTheme();
 
@@ -53,11 +54,35 @@ export function HeaderBar({
       {/* Top Profile / App Header (Screen 1 style: "Hello, Vanessa" -> "IoT Monitor") */}
       <View style={styles.topRow}>
         <View style={styles.titleColumn}>
-          <Text style={[styles.welcomeSub, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
-            {deviceId ? `${deviceId} · Wi-Fi Node` : 'ESP32-WROOM-32 · Wi-Fi Node'}
-          </Text>
-          <Text style={[styles.mainTitle, { color: colors.text, fontFamily: fonts.bold }]}>
+          <Text
+            accessibilityRole="header"
+            style={[
+              styles.mainTitle,
+              {
+                color: colors.text,
+                fontFamily: fonts.bold,
+                fontSize: desktop ? 26 : 23,
+                lineHeight: desktop ? 32 : 29,
+              },
+            ]}
+          >
             IoT Monitor
+          </Text>
+
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[
+              styles.welcomeSub,
+              {
+                color: colors.textSecondary,
+                fontFamily: fonts.medium,
+              },
+            ]}
+          >
+            {deviceId
+              ? `${deviceId} · Wi-Fi Node`
+              : 'ESP32-WROOM-32 · Wi-Fi Node'}
           </Text>
         </View>
 
@@ -170,20 +195,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
   },
   titleColumn: {
-    gap: 2,
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    gap: 4,
   },
   welcomeSub: {
-    fontSize: 13,
+    fontSize: 12,
+    lineHeight: 17,
   },
   mainTitle: {
-    fontSize: 28,
-    letterSpacing: -0.6,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   topRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
     gap: 10,
   },
   statusBadge: {
