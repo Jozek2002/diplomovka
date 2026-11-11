@@ -3,16 +3,13 @@ import {
 } from 'react';
 
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
 
 import {
-  fonts,
   useMonitorTheme,
 } from '@/theme/monitor-theme';
 import type { Protocol, Status, Telemetry } from '@/types/iot';
@@ -43,13 +40,6 @@ type Props = {
   onClearEvents: () => void;
 };
 
-const MOBILE_TABS: { id: DashboardTab; label: string; icon: string }[] = [
-  { id: 'overview', label: 'Prehľad', icon: '🏠' },
-  { id: 'measurements', label: 'Merania', icon: '📊' },
-  { id: 'events', label: 'Denník', icon: '📋' },
-  { id: 'settings', label: 'Nastavenia', icon: '⚙️' },
-];
-
 export function MonitorDashboard({
   protocol,
   status,
@@ -72,13 +62,13 @@ export function MonitorDashboard({
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [eventFilter, setEventFilter] = useState<EventFilter>('all');
 
-  const desktop = width >= 920;
+  const desktop = width >= 960;
   const connected = status === 'connected';
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={styles.appleCenteredShell}>
-        {/* Apple iOS Style Header */}
+      <View style={styles.appShell}>
+        {/* Header with Top Pill Navigation Tabs */}
         <HeaderBar
           tab={activeTab}
           onTabChange={setActiveTab}
@@ -88,11 +78,11 @@ export function MonitorDashboard({
           desktop={desktop}
         />
 
-        {/* Content Body */}
+        {/* Content Body (No bottom bar for now as requested) */}
         {desktop ? (
-          /* ================= DESKTOP / IPAD 2-COLUMN VIEW ================= */
+          /* ================= DESKTOP 2-COLUMN LAYOUT ================= */
           <View style={styles.desktopLayout}>
-            {/* Left Column (360px): Access Control & Connection */}
+            {/* Left Column (Hero Card + Connection) */}
             <ScrollView
               style={styles.leftColumn}
               contentContainerStyle={styles.columnInner}
@@ -116,7 +106,7 @@ export function MonitorDashboard({
               />
             </ScrollView>
 
-            {/* Right Column: Dynamic Inspector */}
+            {/* Right Column (Dynamic content based on top pills) */}
             <ScrollView
               style={styles.rightColumn}
               contentContainerStyle={styles.columnInner}
@@ -170,99 +160,59 @@ export function MonitorDashboard({
             </ScrollView>
           </View>
         ) : (
-          /* ================= IPHONE / MOBILE STACK ================= */
-          <View style={styles.mobileLayout}>
-            <ScrollView
-              style={styles.mobileScroll}
-              contentContainerStyle={styles.mobileInner}
-              showsVerticalScrollIndicator={false}
-            >
-              {activeTab === 'overview' && (
-                <>
-                  <OutputControlCard
-                    connected={connected}
-                    outputEnabled={outputEnabled}
-                    outputBusy={outputBusy}
-                    onOutputChange={onOutputChange}
-                  />
-
-                  <TelemetryCard
-                    telemetry={telemetry}
-                    samples={samples}
-                    connected={connected}
-                  />
-
-                  <ConnectionCard
-                    protocol={protocol}
-                    status={status}
-                    error={error}
-                    outputBusy={outputBusy}
-                    onProtocolChange={onProtocolChange}
-                    onConnect={onConnect}
-                    onDisconnect={onDisconnect}
-                  />
-                </>
-              )}
-
-              {activeTab === 'measurements' && <MeasurementsCard />}
-
-              {activeTab === 'events' && (
-                <EventsLogCard
-                  events={events}
-                  eventFilter={eventFilter}
-                  onEventFilterChange={setEventFilter}
-                  onClearEvents={onClearEvents}
+          /* ================= SINGLE COLUMN RESPONSIVE VIEW ================= */
+          <ScrollView
+            style={styles.singleColumnScroll}
+            contentContainerStyle={styles.singleColumnInner}
+            showsVerticalScrollIndicator={false}
+          >
+            {activeTab === 'overview' && (
+              <>
+                <OutputControlCard
+                  connected={connected}
+                  outputEnabled={outputEnabled}
+                  outputBusy={outputBusy}
+                  onOutputChange={onOutputChange}
                 />
-              )}
 
-              {activeTab === 'settings' && (
-                <SettingsCard
-                  sampleCount={samples.length}
-                  eventCount={events.length}
-                  onClearHistory={onClearHistory}
-                  onClearEvents={onClearEvents}
+                <TelemetryCard
+                  telemetry={telemetry}
+                  samples={samples}
+                  connected={connected}
                 />
-              )}
-            </ScrollView>
 
-            {/* Native Apple iOS Bottom Tab Bar */}
-            <View
-              style={[
-                styles.bottomTabBar,
-                {
-                  backgroundColor: colors.surface,
-                  borderTopColor: colors.line,
-                },
-              ]}
-            >
-              {MOBILE_TABS.map((t) => {
-                const active = activeTab === t.id;
-                return (
-                  <Pressable
-                    key={t.id}
-                    onPress={() => setActiveTab(t.id)}
-                    style={({ pressed }) => [
-                      styles.tabItem,
-                      pressed && { opacity: 0.6 },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 18 }}>{t.icon}</Text>
-                    <Text
-                      style={[
-                        styles.tabItemLabel,
-                        {
-                          color: active ? colors.tint : colors.textSecondary,
-                          fontFamily: active ? fonts.semibold : fonts.medium,
-                        },
-                      ]}
-                    >
-                      {t.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+                <ConnectionCard
+                  protocol={protocol}
+                  status={status}
+                  error={error}
+                  outputBusy={outputBusy}
+                  onProtocolChange={onProtocolChange}
+                  onConnect={onConnect}
+                  onDisconnect={onDisconnect}
+                />
+              </>
+            )}
+
+            {activeTab === 'measurements' && <MeasurementsCard />}
+
+            {activeTab === 'events' && (
+              <EventsLogCard
+                events={events}
+                eventFilter={eventFilter}
+                onEventFilterChange={setEventFilter}
+                onClearEvents={onClearEvents}
+              />
+            )}
+
+            {activeTab === 'settings' && (
+              <SettingsCard
+                sampleCount={samples.length}
+                eventCount={events.length}
+                onClearHistory={onClearHistory}
+                onClearEvents={onClearEvents}
+              />
+            )}
+          </ScrollView>
         )}
       </View>
     </View>
@@ -273,20 +223,22 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-  appleCenteredShell: {
+  appShell: {
     flex: 1,
-    maxWidth: 1080,
+    maxWidth: 1060,
     width: '100%',
     alignSelf: 'center',
   },
   desktopLayout: {
     flex: 1,
     flexDirection: 'row',
-    padding: 18,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
     gap: 18,
   },
   leftColumn: {
-    width: 360,
+    width: 380,
     flexGrow: 0,
     flexShrink: 0,
   },
@@ -295,34 +247,15 @@ const styles = StyleSheet.create({
   },
   columnInner: {
     gap: 16,
-    paddingBottom: 30,
+    paddingBottom: 40,
   },
-  mobileLayout: {
+  singleColumnScroll: {
     flex: 1,
   },
-  mobileScroll: {
-    flex: 1,
-  },
-  mobileInner: {
-    padding: 16,
-    gap: 16,
-    paddingBottom: 32,
-  },
-  bottomTabBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    borderTopWidth: StyleSheet.hairlineWidth,
+  singleColumnInner: {
+    paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 16,
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  tabItemLabel: {
-    fontSize: 10,
+    gap: 16,
+    paddingBottom: 40,
   },
 });

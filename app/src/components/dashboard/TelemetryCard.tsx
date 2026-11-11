@@ -58,12 +58,12 @@ export function TelemetryCard({
     return { min, max, avg };
   }, [values]);
 
-  const activeColor = activeMetric === 'temperature' ? colors.orange : colors.tint;
+  const activeColor = isDark ? '#FFFFFF' : '#121417';
   const unit = activeMetric === 'temperature' ? '°C' : '%';
 
   // Sparkline coordinates
-  const chartHeight = 100;
-  const paddingY = 8;
+  const chartHeight = 90;
+  const paddingY = 6;
   const minVal = stats ? stats.min - 0.4 : 20;
   const maxVal = stats ? stats.max + 0.4 : 30;
   const range = maxVal - minVal || 1;
@@ -82,46 +82,62 @@ export function TelemetryCard({
   }, [visibleSamples, chartWidth, activeMetric, minVal, range]);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
-      {/* Card Header with Segmented Window Control */}
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.line,
+        },
+      ]}
+    >
+      {/* Section Title (Screen 1 & 2 style: "Upcoming tours" -> "Senzory telemetrie") */}
       <View style={styles.cardHeader}>
         <View>
-          <Text style={[styles.cardTitle, { color: colors.text, fontFamily: fonts.semibold }]}>
-            Telemetrické senzory
+          <Text style={[styles.sectionHeading, { color: colors.text, fontFamily: fonts.bold }]}>
+            Živá telemetria
           </Text>
-          <Text style={[styles.cardSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
             {connected
-              ? `Vzorka #${telemetry?.sequence ?? '—'} · 1 vzorka za sekundu`
-              : 'Zariadenie odpojené'}
+              ? `Vzorka #${telemetry?.sequence ?? '—'} · 1 vzorka / sekundu`
+              : 'Čaká sa na pripojenie k uzlu'}
           </Text>
         </View>
 
-        {/* Window Selector */}
-        <View style={[styles.windowSelector, { backgroundColor: colors.surfaceElevated }]}>
+        {/* Window Selector Pills (15s | 30s | 60s) */}
+        <View style={styles.windowPillsRow}>
           {([15, 30, 60] as const).map((w) => {
             const active = windowSize === w;
             return (
               <Pressable
                 key={w}
                 onPress={() => setWindowSize(w)}
-                style={[
-                  styles.windowOption,
-                  active && [
-                    styles.windowOptionActive,
-                    { backgroundColor: colors.surface },
-                  ],
+                style={({ pressed }) => [
+                  styles.windowPill,
+                  {
+                    backgroundColor: active
+                      ? isDark
+                        ? '#FFFFFF'
+                        : '#121417'
+                      : colors.backgroundSecondary,
+                  },
+                  pressed && { opacity: 0.8 },
                 ]}
               >
                 <Text
                   style={[
-                    styles.windowText,
+                    styles.windowPillText,
                     {
-                      color: active ? colors.text : colors.textSecondary,
+                      color: active
+                        ? isDark
+                          ? '#121417'
+                          : '#FFFFFF'
+                        : colors.textSecondary,
                       fontFamily: active ? fonts.semibold : fonts.medium,
                     },
                   ]}
                 >
-                  {w} s
+                  {w}s
                 </Text>
               </Pressable>
             );
@@ -129,108 +145,74 @@ export function TelemetryCard({
         </View>
       </View>
 
-      {/* Apple HomeKit Climate Tiles */}
-      <View style={styles.tilesRow}>
-        {/* Temperature Tile */}
+      {/* Screen 2 "Upcoming tours" Style Side-by-Side Cards */}
+      <View style={styles.tilesGrid}>
+        {/* Temperature Card */}
         <Pressable
           onPress={() => setActiveMetric('temperature')}
           style={({ pressed }) => [
-            styles.climateTile,
+            styles.sensorTile,
             {
-              backgroundColor: colors.surfaceElevated,
+              backgroundColor: colors.backgroundSecondary,
               borderColor:
                 activeMetric === 'temperature'
-                  ? colors.orange
+                  ? colors.text
                   : 'transparent',
             },
             pressed && { opacity: 0.9 },
           ]}
         >
-          <View style={styles.tileTop}>
-            <View
-              style={[
-                styles.tileIconCircle,
-                {
-                  backgroundColor:
-                    activeMetric === 'temperature'
-                      ? colors.orangeSoft
-                      : colors.surfaceHighlight,
-                },
-              ]}
-            >
-              <Text style={{ fontSize: 16 }}>🌡️</Text>
+          <View style={styles.sensorTileHeader}>
+            <View style={[styles.sensorTag, { backgroundColor: colors.surface }]}>
+              <Text style={{ fontSize: 13 }}>🌡️</Text>
+              <Text style={[styles.sensorTagText, { color: colors.text, fontFamily: fonts.medium }]}>
+                Teplota
+              </Text>
             </View>
-            <Text style={[styles.tileLabel, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
-              Teplota
-            </Text>
+            <View style={[styles.activeDot, { backgroundColor: activeMetric === 'temperature' ? colors.green : 'transparent' }]} />
           </View>
 
-          <Text
-            style={[
-              styles.tileValue,
-              {
-                color: telemetry ? colors.text : colors.textTertiary,
-                fontFamily: fonts.bold,
-              },
-            ]}
-          >
+          <Text style={[styles.sensorNumber, { color: colors.text, fontFamily: fonts.bold }]}>
             {telemetry ? `${formatVal(telemetry.temperature)} °C` : '—'}
           </Text>
 
-          <Text style={[styles.tileFootnote, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+          <Text style={[styles.sensorFootnote, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
             {stats && activeMetric === 'temperature'
               ? `Priemer ${formatVal(stats.avg)} °C`
               : 'Rozsah 22–26 °C'}
           </Text>
         </Pressable>
 
-        {/* Humidity Tile */}
+        {/* Humidity Card */}
         <Pressable
           onPress={() => setActiveMetric('humidity')}
           style={({ pressed }) => [
-            styles.climateTile,
+            styles.sensorTile,
             {
-              backgroundColor: colors.surfaceElevated,
+              backgroundColor: colors.backgroundSecondary,
               borderColor:
                 activeMetric === 'humidity'
-                  ? colors.tint
+                  ? colors.text
                   : 'transparent',
             },
             pressed && { opacity: 0.9 },
           ]}
         >
-          <View style={styles.tileTop}>
-            <View
-              style={[
-                styles.tileIconCircle,
-                {
-                  backgroundColor:
-                    activeMetric === 'humidity'
-                      ? colors.httpSoft
-                      : colors.surfaceHighlight,
-                },
-              ]}
-            >
-              <Text style={{ fontSize: 16 }}>💧</Text>
+          <View style={styles.sensorTileHeader}>
+            <View style={[styles.sensorTag, { backgroundColor: colors.surface }]}>
+              <Text style={{ fontSize: 13 }}>💧</Text>
+              <Text style={[styles.sensorTagText, { color: colors.text, fontFamily: fonts.medium }]}>
+                Vlhkosť
+              </Text>
             </View>
-            <Text style={[styles.tileLabel, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
-              Vlhkosť
-            </Text>
+            <View style={[styles.activeDot, { backgroundColor: activeMetric === 'humidity' ? colors.green : 'transparent' }]} />
           </View>
 
-          <Text
-            style={[
-              styles.tileValue,
-              {
-                color: telemetry ? colors.text : colors.textTertiary,
-                fontFamily: fonts.bold,
-              },
-            ]}
-          >
+          <Text style={[styles.sensorNumber, { color: colors.text, fontFamily: fonts.bold }]}>
             {telemetry ? `${formatVal(telemetry.humidity)} %` : '—'}
           </Text>
 
-          <Text style={[styles.tileFootnote, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+          <Text style={[styles.sensorFootnote, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
             {stats && activeMetric === 'humidity'
               ? `Priemer ${formatVal(stats.avg)} %`
               : 'Rozsah 40–55 %'}
@@ -238,30 +220,29 @@ export function TelemetryCard({
         </Pressable>
       </View>
 
-      {/* Minimalist Apple Stocks/Health Style Chart */}
+      {/* Sparkline Graph */}
       <View
         onLayout={(e) => setChartWidth(e.nativeEvent.layout.width)}
         style={[
-          styles.chartWrapper,
+          styles.chartBox,
           {
-            backgroundColor: colors.surfaceElevated,
+            backgroundColor: colors.backgroundSecondary,
             height: chartHeight,
           },
         ]}
       >
-        {/* Subtle Scale Label */}
         {stats && (
-          <View style={styles.chartHeaderLabels}>
-            <Text style={[styles.chartRangeText, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
+          <View style={styles.chartLegend}>
+            <Text style={[styles.legendText, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
               {activeMetric === 'temperature' ? 'Priebeh teploty' : 'Priebeh vlhkosti'}
             </Text>
-            <Text style={[styles.chartRangeText, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
+            <Text style={[styles.legendText, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
               Min {formatVal(stats.min)} {unit} · Max {formatVal(stats.max)} {unit}
             </Text>
           </View>
         )}
 
-        {/* Clean Line Segments */}
+        {/* Polyline line segments */}
         {points.length > 1 &&
           points.slice(1).map((pt, idx) => {
             const prev = points[idx];
@@ -287,11 +268,11 @@ export function TelemetryCard({
             );
           })}
 
-        {/* Tip Dot */}
+        {/* Tip Indicator */}
         {points.length > 0 && (
           <View
             style={[
-              styles.tipDot,
+              styles.chartTip,
               {
                 left: points[points.length - 1].x - 4,
                 top: points[points.length - 1].y - 4,
@@ -301,11 +282,10 @@ export function TelemetryCard({
           />
         )}
 
-        {/* Empty state */}
         {(!connected || visibleSamples.length === 0) && (
-          <View style={styles.chartPlaceholder}>
-            <Text style={[styles.placeholderText, { color: colors.textTertiary, fontFamily: fonts.regular }]}>
-              {connected ? 'Čaká sa na vzorky…' : 'Bez aktívneho spojenia'}
+          <View style={styles.emptyOverlay}>
+            <Text style={[styles.emptyLabel, { color: colors.textTertiary, fontFamily: fonts.regular }]}>
+              {connected ? 'Čaká sa na prvé vzorky…' : 'Bez aktívneho spojenia'}
             </Text>
           </View>
         )}
@@ -316,106 +296,111 @@ export function TelemetryCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 26,
     borderWidth: 1,
     padding: 18,
     gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cardTitle: {
-    fontSize: 17,
+  sectionHeading: {
+    fontSize: 18,
     letterSpacing: -0.3,
   },
-  cardSubtitle: {
+  sectionSubtitle: {
     fontSize: 13,
   },
-  windowSelector: {
+  windowPillsRow: {
     flexDirection: 'row',
-    padding: 2,
-    borderRadius: 8,
+    alignItems: 'center',
+    gap: 6,
   },
-  windowOption: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+  windowPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
-  windowOptionActive: {
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
+  windowPillText: {
+    fontSize: 11,
   },
-  windowText: {
-    fontSize: 12,
-  },
-  tilesRow: {
+  tilesGrid: {
     flexDirection: 'row',
     gap: 12,
   },
-  climateTile: {
+  sensorTile: {
     flex: 1,
-    padding: 14,
-    borderRadius: 16,
+    padding: 16,
+    borderRadius: 22,
     borderWidth: 1.5,
-    gap: 6,
-  },
-  tileTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
   },
-  tileIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  sensorTileHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
-  tileLabel: {
-    fontSize: 13,
+  sensorTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    gap: 6,
   },
-  tileValue: {
-    fontSize: 22,
-    letterSpacing: -0.5,
-  },
-  tileFootnote: {
+  sensorTagText: {
     fontSize: 12,
   },
-  chartWrapper: {
-    borderRadius: 14,
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  sensorNumber: {
+    fontSize: 24,
+    letterSpacing: -0.5,
+  },
+  sensorFootnote: {
+    fontSize: 12,
+  },
+  chartBox: {
+    borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
     justifyContent: 'center',
   },
-  chartHeaderLabels: {
+  chartLegend: {
     position: 'absolute',
     top: 8,
-    left: 12,
-    right: 12,
+    left: 14,
+    right: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     zIndex: 2,
   },
-  chartRangeText: {
+  legendText: {
     fontSize: 11,
   },
-  tipDot: {
+  chartTip: {
     position: 'absolute',
     width: 8,
     height: 8,
     borderRadius: 4,
     zIndex: 3,
   },
-  chartPlaceholder: {
+  emptyOverlay: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  placeholderText: {
+  emptyLabel: {
     fontSize: 13,
   },
 });

@@ -11,29 +11,29 @@ import { Platform, useColorScheme } from 'react-native';
 export type ThemePreference = 'light' | 'dark' | 'system';
 
 export type MonitorColors = {
-  // Apple HIG backgrounds
   background: string;
   backgroundSecondary: string;
-  surface: string;          // secondarySystemGroupedBackground (Cards)
-  surfaceElevated: string;  // tertiarySystemGroupedBackground (Tiles, Input fields)
-  surfaceHighlight: string; // Pressed / segmented slider
+  surface: string;           // Čistá biela karta
+  surfaceElevated: string;   // Jemná svetlosivá pre neaktívne pilulky a polia
+  surfaceHighlight: string;
   
-  // Apple labels & lines
-  text: string;             // label
-  textSecondary: string;    // secondaryLabel
-  textTertiary: string;     // tertiaryLabel
-  line: string;             // separator
+  // Texty a štítky
+  text: string;              // Dominantná čierna / biela
+  textSecondary: string;     // Elegantná tlmená sivá
+  textTertiary: string;
+  line: string;              // Jemná deliaca čiara kariet
   lineStrong: string;
 
-  // Apple System Tint Colors
-  tint: string;             // systemBlue
-  green: string;            // systemGreen (Active status, confirmed)
-  orange: string;           // systemOrange (Telemetry humidity)
-  yellow: string;           // systemYellow (HomeKit accessory light/switch)
-  red: string;              // systemRed (Errors)
-  purple: string;           // systemPurple (MQTT)
+  // Akcenty z predlohy
+  primaryDark: string;       // Čierne tlačidlá a aktívne pilulky (#121417)
+  primaryDarkHover: string;
+  tint: string;              // Modrý / čierny akcent
+  green: string;             // Stav online / úspech (#10B981)
+  orange: string;            // Oranžový indikátor (#F59E0B)
+  red: string;               // Chyba (#EF4444)
+  yellow: string;
 
-  // Spätná kompatibilita pre staršie moduly
+  // Kompatibilita
   muted: string;
   olive: string;
   oliveSoft: string;
@@ -61,27 +61,27 @@ export const fonts = {
   regular: Platform.select({
     ios: 'System',
     android: 'Roboto',
-    default: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif',
+    default: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif',
   }),
   medium: Platform.select({
     ios: 'System',
     android: 'Roboto-Medium',
-    default: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif',
+    default: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif',
   }),
   semibold: Platform.select({
     ios: 'System',
     android: 'Roboto-Medium',
-    default: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif',
+    default: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif',
   }),
   bold: Platform.select({
     ios: 'System',
     android: 'Roboto-Bold',
-    default: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif',
+    default: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif',
   }),
   extraBold: Platform.select({
     ios: 'System',
     android: 'Roboto-Bold',
-    default: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif',
+    default: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif',
   }),
   mono: Platform.select({
     ios: 'SF Mono, Menlo',
@@ -90,94 +90,94 @@ export const fonts = {
   }),
 };
 
-// Apple iOS / macOS Dark Mode (True Black & Grouped Grays)
-const darkColors: MonitorColors = {
-  background: '#000000',
-  backgroundSecondary: '#121214',
-  surface: '#1C1C1E',
-  surfaceElevated: '#2C2C2E',
-  surfaceHighlight: '#3A3A3C',
-  
-  text: '#FFFFFF',
-  textSecondary: 'rgba(235, 235, 245, 0.6)',
-  textTertiary: 'rgba(235, 235, 245, 0.3)',
-  line: 'rgba(255, 255, 255, 0.1)',
-  lineStrong: 'rgba(255, 255, 255, 0.18)',
-
-  tint: '#0A84FF',
-  green: '#30D158',
-  orange: '#FF9F0A',
-  yellow: '#FFD60A',
-  red: '#FF453A',
-  purple: '#BF5AF2',
-
-  // Kompatibilita
-  muted: 'rgba(235, 235, 245, 0.6)',
-  olive: '#30D158',
-  oliveSoft: 'rgba(48, 209, 88, 0.15)',
-  orangeSoft: 'rgba(255, 159, 10, 0.15)',
-  error: '#FF453A',
-  errorSoft: 'rgba(255, 69, 58, 0.15)',
-  onAccent: '#FFFFFF',
-  notice: '#1C1C1E',
-  http: '#0A84FF',
-  httpSoft: 'rgba(10, 132, 255, 0.15)',
-  httpBorder: 'rgba(10, 132, 255, 0.3)',
-  ws: '#30D158',
-  wsSoft: 'rgba(48, 209, 88, 0.15)',
-  wsBorder: 'rgba(48, 209, 88, 0.3)',
-  mqtt: '#BF5AF2',
-  mqttSoft: 'rgba(191, 90, 242, 0.15)',
-  mqttBorder: 'rgba(191, 90, 242, 0.3)',
-  success: '#30D158',
-  successSoft: 'rgba(48, 209, 88, 0.15)',
-  warning: '#FF9F0A',
-  warningSoft: 'rgba(255, 159, 10, 0.15)',
-};
-
-// Apple iOS / macOS Light Mode
+// Štýl podľa predlohy TripGlide: Čistý svetlý dizajn s prémiovým kontrastom
 const lightColors: MonitorColors = {
-  background: '#F2F2F7',
-  backgroundSecondary: '#E5E5EA',
+  background: '#F5F6F9',
+  backgroundSecondary: '#ECEEF2',
   surface: '#FFFFFF',
-  surfaceElevated: '#F2F2F7',
-  surfaceHighlight: '#E5E5EA',
+  surfaceElevated: '#ECEEF2',
+  surfaceHighlight: '#E0E3E8',
 
-  text: '#000000',
-  textSecondary: 'rgba(60, 60, 67, 0.6)',
-  textTertiary: 'rgba(60, 60, 67, 0.3)',
-  line: 'rgba(60, 60, 67, 0.12)',
-  lineStrong: 'rgba(60, 60, 67, 0.22)',
+  text: '#121417',
+  textSecondary: '#636A79',
+  textTertiary: '#9BA3B2',
+  line: '#E8EAEE',
+  lineStrong: '#D5D9E0',
 
-  tint: '#007AFF',
-  green: '#34C759',
-  orange: '#FF9500',
-  yellow: '#FFCC00',
-  red: '#FF3B30',
-  purple: '#AF52DE',
+  primaryDark: '#121417',
+  primaryDarkHover: '#26292E',
+  tint: '#121417',
+  green: '#10B981',
+  orange: '#F59E0B',
+  yellow: '#FBBF24',
+  red: '#EF4444',
 
-  // Kompatibilita
-  muted: 'rgba(60, 60, 67, 0.6)',
-  olive: '#34C759',
-  oliveSoft: 'rgba(52, 199, 89, 0.15)',
-  orangeSoft: 'rgba(255, 149, 0, 0.15)',
-  error: '#FF3B30',
-  errorSoft: 'rgba(255, 59, 48, 0.15)',
+  muted: '#636A79',
+  olive: '#10B981',
+  oliveSoft: 'rgba(16, 185, 129, 0.12)',
+  orangeSoft: 'rgba(245, 158, 11, 0.12)',
+  error: '#EF4444',
+  errorSoft: 'rgba(239, 68, 68, 0.12)',
   onAccent: '#FFFFFF',
   notice: '#FFFFFF',
-  http: '#007AFF',
-  httpSoft: 'rgba(0, 122, 255, 0.12)',
-  httpBorder: 'rgba(0, 122, 255, 0.25)',
-  ws: '#34C759',
-  wsSoft: 'rgba(52, 199, 89, 0.12)',
-  wsBorder: 'rgba(52, 199, 89, 0.25)',
-  mqtt: '#AF52DE',
-  mqttSoft: 'rgba(175, 82, 222, 0.12)',
-  mqttBorder: 'rgba(175, 82, 222, 0.25)',
-  success: '#34C759',
-  successSoft: 'rgba(52, 199, 89, 0.12)',
-  warning: '#FF9500',
-  warningSoft: 'rgba(255, 149, 0, 0.12)',
+  http: '#121417',
+  httpSoft: 'rgba(18, 20, 23, 0.08)',
+  httpBorder: 'rgba(18, 20, 23, 0.15)',
+  ws: '#10B981',
+  wsSoft: 'rgba(16, 185, 129, 0.1)',
+  wsBorder: 'rgba(16, 185, 129, 0.25)',
+  mqtt: '#8B5CF6',
+  mqttSoft: 'rgba(139, 92, 246, 0.1)',
+  mqttBorder: 'rgba(139, 92, 246, 0.25)',
+  success: '#10B981',
+  successSoft: 'rgba(16, 185, 129, 0.12)',
+  warning: '#F59E0B',
+  warningSoft: 'rgba(245, 158, 11, 0.12)',
+};
+
+// Tmavý variant zachovávajúci rovnakú geometriu a čistotu
+const darkColors: MonitorColors = {
+  background: '#0D0F12',
+  backgroundSecondary: '#14181D',
+  surface: '#1A1E24',
+  surfaceElevated: '#252B33',
+  surfaceHighlight: '#323944',
+
+  text: '#FFFFFF',
+  textSecondary: '#9AA3B2',
+  textTertiary: '#5C6473',
+  line: '#282F3A',
+  lineStrong: '#3A4452',
+
+  primaryDark: '#FFFFFF',
+  primaryDarkHover: '#E5E7EB',
+  tint: '#FFFFFF',
+  green: '#10B981',
+  orange: '#F59E0B',
+  yellow: '#FBBF24',
+  red: '#EF4444',
+
+  muted: '#9AA3B2',
+  olive: '#10B981',
+  oliveSoft: 'rgba(16, 185, 129, 0.2)',
+  orangeSoft: 'rgba(245, 158, 11, 0.2)',
+  error: '#EF4444',
+  errorSoft: 'rgba(239, 68, 68, 0.2)',
+  onAccent: '#121417',
+  notice: '#1A1E24',
+  http: '#FFFFFF',
+  httpSoft: 'rgba(255, 255, 255, 0.1)',
+  httpBorder: 'rgba(255, 255, 255, 0.2)',
+  ws: '#10B981',
+  wsSoft: 'rgba(16, 185, 129, 0.15)',
+  wsBorder: 'rgba(16, 185, 129, 0.3)',
+  mqtt: '#A78BFA',
+  mqttSoft: 'rgba(167, 139, 250, 0.15)',
+  mqttBorder: 'rgba(167, 139, 250, 0.3)',
+  success: '#10B981',
+  successSoft: 'rgba(16, 185, 129, 0.2)',
+  warning: '#F59E0B',
+  warningSoft: 'rgba(245, 158, 11, 0.2)',
 };
 
 type ThemeContextValue = {
@@ -192,7 +192,8 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export function MonitorThemeProvider({ children }: PropsWithChildren) {
   const systemScheme = useColorScheme();
 
-  const [preference, setPreference] = useState<ThemePreference>('dark');
+  // Predvolený svetlý motív podľa predlohy TripGlide
+  const [preference, setPreference] = useState<ThemePreference>('light');
 
   const isDark =
     preference === 'dark' ||

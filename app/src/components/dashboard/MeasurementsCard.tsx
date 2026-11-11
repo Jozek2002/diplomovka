@@ -73,148 +73,159 @@ export function MeasurementsCard() {
   const wsCount = measurements.filter((m) => m.protocol === 'WebSocket').length;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.line,
+        },
+      ]}
+    >
       {/* Header */}
       <View style={styles.cardHeader}>
         <View>
-          <Text style={[styles.cardTitle, { color: colors.text, fontFamily: fonts.semibold }]}>
-            Merania latencie (RTT)
+          <Text style={[styles.sectionHeading, { color: colors.text, fontFamily: fonts.bold }]}>
+            Komparatívna analýza RTT
           </Text>
-          <Text style={[styles.cardSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
-            Odozva ovládacích príkazov · {measurements.length} pokusov
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+            Experimentálne merania latencie riadiacich príkazov · {measurements.length} pokusov
           </Text>
         </View>
 
-        {/* Clear Button */}
         {measurements.length > 0 && (
           <Pressable
             onPress={clearCommandMeasurements}
             style={({ pressed }) => [
-              styles.textBtn,
-              pressed && { opacity: 0.6 },
+              styles.clearPillBtn,
+              { backgroundColor: colors.backgroundSecondary },
+              pressed && { opacity: 0.7 },
             ]}
           >
-            <Text style={[styles.textBtnLabel, { color: colors.red, fontFamily: fonts.medium }]}>
+            <Text style={[styles.clearBtnText, { color: colors.red, fontFamily: fonts.medium }]}>
               Vymazať
             </Text>
           </Pressable>
         )}
       </View>
 
-      {/* Apple Health Style Highlight Tile */}
-      <View style={[styles.healthTile, { backgroundColor: colors.surfaceElevated }]}>
-        <Text style={[styles.healthTileLabel, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
-          Priemerný Round-Trip Time
+      {/* Highlight Average Tile */}
+      <View style={[styles.summaryTile, { backgroundColor: colors.backgroundSecondary }]}>
+        <Text style={[styles.summaryLabel, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
+          Priemerná latencia (Round-Trip Time)
         </Text>
 
-        <Text style={[styles.healthLargeNumber, { color: colors.text, fontFamily: fonts.bold }]}>
+        <Text style={[styles.largeAvgNumber, { color: colors.text, fontFamily: fonts.bold }]}>
           {formatMs(avg)}
         </Text>
 
-        {/* 3 Metric Columns */}
-        <View style={styles.subStatsRow}>
-          <View style={styles.statCol}>
-            <Text style={[styles.statColLabel, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+        {/* 3 Metric Sub-stats */}
+        <View style={styles.metricsRow}>
+          <View style={styles.metricItem}>
+            <Text style={[styles.itemLabel, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
               Minimum
             </Text>
-            <Text style={[styles.statColValue, { color: colors.text, fontFamily: fonts.semibold }]}>
+            <Text style={[styles.itemVal, { color: colors.text, fontFamily: fonts.semibold }]}>
               {formatMs(min)}
             </Text>
           </View>
 
-          <View style={[styles.verticalDivider, { backgroundColor: colors.line }]} />
+          <View style={[styles.vDivider, { backgroundColor: colors.line }]} />
 
-          <View style={styles.statCol}>
-            <Text style={[styles.statColLabel, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+          <View style={styles.metricItem}>
+            <Text style={[styles.itemLabel, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
               Medián (P50)
             </Text>
-            <Text style={[styles.statColValue, { color: colors.text, fontFamily: fonts.semibold }]}>
+            <Text style={[styles.itemVal, { color: colors.text, fontFamily: fonts.semibold }]}>
               {formatMs(median)}
             </Text>
           </View>
 
-          <View style={[styles.verticalDivider, { backgroundColor: colors.line }]} />
+          <View style={[styles.vDivider, { backgroundColor: colors.line }]} />
 
-          <View style={styles.statCol}>
-            <Text style={[styles.statColLabel, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+          <View style={styles.metricItem}>
+            <Text style={[styles.itemLabel, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
               Maximum
             </Text>
-            <Text style={[styles.statColValue, { color: colors.text, fontFamily: fonts.semibold }]}>
+            <Text style={[styles.itemVal, { color: colors.text, fontFamily: fonts.semibold }]}>
               {formatMs(max)}
             </Text>
           </View>
         </View>
 
-        {/* Protocol breakdown subtitle */}
-        <View style={styles.protoBadgeRow}>
-          <Text style={[styles.breakdownText, { color: colors.textTertiary, fontFamily: fonts.regular }]}>
-            HTTP: {httpCount} požiadaviek · WebSocket: {wsCount} požiadaviek
+        <View style={styles.countsFooter}>
+          <Text style={[styles.countsFooterText, { color: colors.textTertiary, fontFamily: fonts.regular }]}>
+            HTTP/REST: {httpCount} meraní · WebSocket: {wsCount} meraní
           </Text>
         </View>
       </View>
 
-      {/* Recent Commands Grouped Inset List */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
-          HISTÓRIA POSLEDNÝCH PRÍKAZOV
+      {/* History Itinerary Cards (Screen 3 style: "Day 1 / Day 2" stacked cards) */}
+      <View style={styles.historyBlock}>
+        <Text style={[styles.historyHeading, { color: colors.text, fontFamily: fonts.semibold }]}>
+          Posledné vykonané príkazy
         </Text>
-      </View>
 
-      <View style={[styles.insetGroup, { backgroundColor: colors.surfaceElevated }]}>
         {measurements.length === 0 ? (
-          <Text style={[styles.emptyText, { color: colors.textTertiary, fontFamily: fonts.regular }]}>
-            Zatiaľ neboli vykonané žiadne merania.
-          </Text>
+          <View style={[styles.emptyBox, { backgroundColor: colors.backgroundSecondary }]}>
+            <Text style={[styles.emptyText, { color: colors.textTertiary, fontFamily: fonts.regular }]}>
+              Zatiaľ neboli vykonané žiadne ovládacie príkazy.
+            </Text>
+          </View>
         ) : (
           measurements
             .slice(-4)
             .reverse()
-            .map((item, index) => {
+            .map((item) => {
               const isSuccess = item.outcome === 'confirmed';
               return (
-                <View key={item.id}>
-                  {index > 0 && <View style={[styles.separator, { backgroundColor: colors.line }]} />}
-                  <View style={styles.historyRow}>
-                    <View style={styles.historyLeft}>
-                      <Text style={{ fontSize: 14 }}>
+                <View
+                  key={item.id}
+                  style={[
+                    styles.commandItineraryCard,
+                    {
+                      backgroundColor: colors.backgroundSecondary,
+                      borderColor: colors.line,
+                    },
+                  ]}
+                >
+                  <View style={styles.cmdCardLeft}>
+                    <View style={[styles.statusIconCircle, { backgroundColor: colors.surface }]}>
+                      <Text style={{ fontSize: 13 }}>
                         {isSuccess ? '✓' : item.outcome === 'timeout' ? '⏱' : '⚠️'}
                       </Text>
-                      <View>
-                        <Text style={[styles.historyAction, { color: colors.text, fontFamily: fonts.medium }]}>
-                          {item.requestedOutput ? 'Zapnutie výstupu' : 'Vypnutie výstupu'}
-                        </Text>
-                        <Text style={[styles.historyMeta, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
-                          {item.protocol} · {new Date(item.sentAt).toLocaleTimeString('sk-SK')}
-                        </Text>
-                      </View>
                     </View>
 
-                    <View
+                    <View style={styles.cmdInfo}>
+                      <Text style={[styles.cmdTitle, { color: colors.text, fontFamily: fonts.semibold }]}>
+                        {item.requestedOutput ? 'Zapnutie výstupu' : 'Vypnutie výstupu'}
+                      </Text>
+                      <Text style={[styles.cmdSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+                        {item.protocol} · {new Date(item.sentAt).toLocaleTimeString('sk-SK')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Latency Pill on the Right */}
+                  <View
+                    style={[
+                      styles.rttBadge,
+                      {
+                        backgroundColor: colors.surface,
+                      },
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.latencyPill,
+                        styles.rttBadgeText,
                         {
-                          backgroundColor: isSuccess
-                            ? isDark
-                              ? 'rgba(48, 209, 88, 0.15)'
-                              : '#E8F5E9'
-                            : isDark
-                            ? 'rgba(255, 69, 58, 0.15)'
-                            : '#FFEBEE',
+                          color: isSuccess ? colors.green : colors.red,
+                          fontFamily: fonts.semibold,
                         },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.latencyText,
-                          {
-                            color: isSuccess ? colors.green : colors.red,
-                            fontFamily: fonts.semibold,
-                          },
-                        ]}
-                      >
-                        {item.rttMs !== null ? `${item.rttMs.toFixed(1)} ms` : item.outcome}
-                      </Text>
-                    </View>
+                      {item.rttMs !== null ? `${item.rttMs.toFixed(1)} ms` : item.outcome}
+                    </Text>
                   </View>
                 </View>
               );
@@ -222,21 +233,29 @@ export function MeasurementsCard() {
         )}
       </View>
 
-      {/* iOS Action Button (Export CSV) */}
+      {/* Screen 3 Style "Book a tour" Black Capsule Export Button */}
       <Pressable
+        accessibilityRole="button"
         disabled={!web || measurements.length === 0}
         onPress={exportCsv}
         style={({ pressed }) => [
-          styles.exportButton,
+          styles.exportCapsuleButton,
           {
-            backgroundColor: colors.surfaceElevated,
-            borderColor: colors.line,
+            backgroundColor: isDark ? '#FFFFFF' : '#121417',
             opacity: !web || measurements.length === 0 ? 0.4 : 1,
           },
-          pressed && { opacity: 0.8 },
+          pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] },
         ]}
       >
-        <Text style={[styles.exportButtonText, { color: colors.tint, fontFamily: fonts.semibold }]}>
+        <Text
+          style={[
+            styles.exportButtonText,
+            {
+              color: isDark ? '#121417' : '#FFFFFF',
+              fontFamily: fonts.semibold,
+            },
+          ]}
+        >
           Exportovať merania do CSV
         </Text>
       </Pressable>
@@ -246,124 +265,136 @@ export function MeasurementsCard() {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 26,
     borderWidth: 1,
     padding: 18,
-    gap: 14,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cardTitle: {
-    fontSize: 17,
+  sectionHeading: {
+    fontSize: 18,
     letterSpacing: -0.3,
   },
-  cardSubtitle: {
+  sectionSubtitle: {
     fontSize: 13,
   },
-  textBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  clearPillBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
-  textBtnLabel: {
-    fontSize: 13,
+  clearBtnText: {
+    fontSize: 12,
   },
-  healthTile: {
-    padding: 16,
-    borderRadius: 16,
+  summaryTile: {
+    padding: 18,
+    borderRadius: 22,
     gap: 12,
   },
-  healthTileLabel: {
+  summaryLabel: {
     fontSize: 13,
   },
-  healthLargeNumber: {
-    fontSize: 32,
-    letterSpacing: -1,
+  largeAvgNumber: {
+    fontSize: 34,
+    letterSpacing: -0.8,
   },
-  subStatsRow: {
+  metricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
+    paddingTop: 4,
   },
-  statCol: {
+  metricItem: {
     flex: 1,
     alignItems: 'center',
     gap: 2,
   },
-  statColLabel: {
+  itemLabel: {
     fontSize: 11,
   },
-  statColValue: {
-    fontSize: 14,
+  itemVal: {
+    fontSize: 15,
   },
-  verticalDivider: {
+  vDivider: {
     width: StyleSheet.hairlineWidth,
     height: 24,
   },
-  protoBadgeRow: {
+  countsFooter: {
     alignItems: 'center',
     paddingTop: 4,
   },
-  breakdownText: {
+  countsFooterText: {
     fontSize: 11,
   },
-  sectionHeader: {
-    paddingTop: 2,
+  historyBlock: {
+    gap: 10,
   },
-  sectionTitle: {
-    fontSize: 11,
-    letterSpacing: 0.4,
+  historyHeading: {
+    fontSize: 15,
+    letterSpacing: -0.2,
   },
-  insetGroup: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    paddingHorizontal: 14,
+  emptyBox: {
+    padding: 16,
+    borderRadius: 18,
+    alignItems: 'center',
   },
   emptyText: {
-    padding: 16,
     fontSize: 13,
-    textAlign: 'center',
   },
-  historyRow: {
+  commandItineraryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 11,
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
   },
-  historyLeft: {
+  cmdCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
-  historyAction: {
+  statusIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cmdInfo: {
+    gap: 2,
+  },
+  cmdTitle: {
     fontSize: 14,
   },
-  historyMeta: {
-    fontSize: 12,
+  cmdSubtitle: {
+    fontSize: 11,
   },
-  latencyPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  latencyText: {
-    fontSize: 12,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    width: '100%',
-  },
-  exportButton: {
-    paddingVertical: 12,
+  rttBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
-    borderWidth: 1,
+  },
+  rttBadgeText: {
+    fontSize: 12,
+  },
+  exportCapsuleButton: {
+    height: 52,
+    borderRadius: 999, // Plné zaoblenie (Screen 3 style)
     alignItems: 'center',
     justifyContent: 'center',
   },
   exportButtonText: {
-    fontSize: 14,
+    fontSize: 15,
+    letterSpacing: -0.2,
   },
 });

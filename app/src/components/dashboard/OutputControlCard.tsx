@@ -2,7 +2,6 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
@@ -30,161 +29,271 @@ export function OutputControlCard({
   const isOn = connected && outputEnabled;
 
   return (
-    <Pressable
-      accessibilityRole="switch"
-      accessibilityState={{ checked: isOn, disabled: !connected || outputBusy }}
-      disabled={!connected || outputBusy}
-      onPress={() => onOutputChange(!outputEnabled)}
-      style={({ pressed }) => [
-        styles.tile,
+    <View
+      style={[
+        styles.heroCard,
         {
-          backgroundColor: !connected
-            ? colors.surface
-            : isOn
-            ? isDark
-              ? 'rgba(255, 214, 10, 0.12)'
-              : '#FFFBEB'
-            : colors.surface,
-          borderColor: isOn
-            ? isDark
-              ? 'rgba(255, 214, 10, 0.3)'
-              : '#FDE68A'
-            : colors.line,
+          backgroundColor: colors.surface,
+          borderColor: colors.line,
         },
-        pressed && connected && !outputBusy && { opacity: 0.9, transform: [{ scale: 0.99 }] },
       ]}
     >
+      {/* Top Tag Row (Screen 1 style: e.g. location tag "Brazil") */}
       <View style={styles.topRow}>
-        {/* Accessory Round Icon */}
+        <View style={[styles.badgePill, { backgroundColor: colors.backgroundSecondary }]}>
+          <View
+            style={[
+              styles.badgeDot,
+              {
+                backgroundColor: !connected
+                  ? colors.textTertiary
+                  : isOn
+                  ? colors.green
+                  : colors.textSecondary,
+              },
+            ]}
+          />
+          <Text style={[styles.badgeText, { color: colors.text, fontFamily: fonts.medium }]}>
+            GPIO 2 · Vstavaná LED
+          </Text>
+        </View>
+
+        {/* Status chip */}
         <View
           style={[
-            styles.iconCircle,
+            styles.stateChip,
             {
-              backgroundColor: !connected
-                ? colors.surfaceElevated
-                : isOn
-                ? colors.yellow
-                : colors.surfaceElevated,
+              backgroundColor: isOn
+                ? isDark
+                  ? 'rgba(16, 185, 129, 0.18)'
+                  : '#ECFDF5'
+                : colors.backgroundSecondary,
             },
           ]}
         >
           <Text
             style={[
-              styles.iconGlyph,
-              { color: isOn ? '#000000' : colors.textSecondary },
+              styles.stateChipText,
+              {
+                color: !connected
+                  ? colors.textTertiary
+                  : isOn
+                  ? colors.green
+                  : colors.textSecondary,
+                fontFamily: fonts.semibold,
+              },
             ]}
           >
-            💡
+            {!connected ? 'Odpojené' : outputBusy ? 'Potvrdzuje sa…' : isOn ? 'Zapnuté' : 'Vypnuté'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Hero Visual Block / Card Body */}
+      <View
+        style={[
+          styles.heroVisualBlock,
+          {
+            backgroundColor: isOn
+              ? isDark
+                ? '#242A35'
+                : '#1A202C'
+              : isDark
+              ? colors.surfaceElevated
+              : '#F1F3F6',
+          },
+        ]}
+      >
+        <View style={styles.heroTextContent}>
+          <Text
+            style={[
+              styles.heroMainTitle,
+              {
+                color: isOn ? '#FFFFFF' : colors.text,
+                fontFamily: fonts.bold,
+              },
+            ]}
+          >
+            Digitálny výstup
+          </Text>
+          <Text
+            style={[
+              styles.heroSubtitle,
+              {
+                color: isOn ? 'rgba(255, 255, 255, 0.7)' : colors.textSecondary,
+                fontFamily: fonts.regular,
+              },
+            ]}
+          >
+            {!connected
+              ? 'Pre zmenu stavu sa najprv pripoj k uzlu'
+              : outputBusy
+              ? 'Čaká sa na obojsmerné potvrdenie uzla (ACK)…'
+              : isOn
+              ? 'Výstup je aktívny · Modrá LED dióda svieti (HIGH 3.3V)'
+              : 'Výstup je vypnutý · LED dióda nesvieti (LOW 0V)'}
           </Text>
         </View>
 
-        {/* Switch / Loading */}
-        <View style={styles.controlContainer}>
-          {outputBusy ? (
-            <ActivityIndicator size="small" color={colors.tint} />
-          ) : (
-            <Switch
-              accessibilityLabel="Digitálny výstup"
-              value={isOn}
-              disabled={!connected || outputBusy}
-              onValueChange={onOutputChange}
-              trackColor={{
-                false: isDark ? '#39393D' : '#E5E5EA',
-                true: colors.green,
-              }}
-              thumbColor="#FFFFFF"
-              ios_backgroundColor={isDark ? '#39393D' : '#E5E5EA'}
-            />
-          )}
-        </View>
-      </View>
-
-      {/* Label and Status */}
-      <View style={styles.infoBlock}>
-        <Text
-          style={[
-            styles.accessoryTitle,
-            { color: colors.text, fontFamily: fonts.semibold },
-          ]}
-        >
-          Digitálny výstup
-        </Text>
-
-        <Text
-          style={[
-            styles.statusLabel,
+        {/* Bottom Hero Capsule Action Button (Screen 1 style: "See more (→)") */}
+        <Pressable
+          accessibilityRole="button"
+          disabled={!connected || outputBusy}
+          onPress={() => onOutputChange(!outputEnabled)}
+          style={({ pressed }) => [
+            styles.capsuleActionButton,
             {
-              color: !connected
-                ? colors.textTertiary
-                : isOn
-                ? colors.text
-                : colors.textSecondary,
-              fontFamily: fonts.medium,
+              backgroundColor: isOn
+                ? '#FFFFFF'
+                : isDark
+                ? '#FFFFFF'
+                : '#121417',
+              opacity: !connected || outputBusy ? 0.45 : 1,
             },
+            pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] },
           ]}
         >
-          {!connected
-            ? 'Zariadenie odpojené'
-            : outputBusy
-            ? 'Čaká sa na potvrdenie…'
-            : isOn
-            ? 'Zapnuté (LED svieti)'
-            : 'Vypnuté'}
-        </Text>
+          <Text
+            style={[
+              styles.capsuleActionText,
+              {
+                color: isOn
+                  ? '#121417'
+                  : isDark
+                  ? '#121417'
+                  : '#FFFFFF',
+                fontFamily: fonts.semibold,
+              },
+            ]}
+          >
+            {outputBusy
+              ? 'Spracovávam príkaz…'
+              : !connected
+              ? 'Uzol nie je pripojený'
+              : isOn
+              ? 'Vypnúť výstup'
+              : 'Zapnúť výstup'}
+          </Text>
 
-        <Text
-          style={[
-            styles.footnote,
-            { color: colors.textTertiary, fontFamily: fonts.regular },
-          ]}
-        >
-          GPIO 2 · Vstavaná modrá LED dióda
-        </Text>
+          {/* Round Circle Arrow Button */}
+          <View
+            style={[
+              styles.circleArrowBtn,
+              {
+                backgroundColor: isOn
+                  ? '#121417'
+                  : isDark
+                  ? '#121417'
+                  : '#FFFFFF',
+              },
+            ]}
+          >
+            {outputBusy ? (
+              <ActivityIndicator size="small" color={isOn ? '#FFFFFF' : colors.text} />
+            ) : (
+              <Text
+                style={[
+                  styles.arrowIcon,
+                  {
+                    color: isOn
+                      ? '#FFFFFF'
+                      : isDark
+                      ? '#FFFFFF'
+                      : '#121417',
+                  },
+                ]}
+              >
+                →
+              </Text>
+            )}
+          </View>
+        </Pressable>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  tile: {
-    borderRadius: 20,
+  heroCard: {
+    borderRadius: 26,
     borderWidth: 1,
-    padding: 18,
-    gap: 16,
+    padding: 16,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    elevation: 2,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  iconCircle: {
-    width: 44,
-    height: 44,
+  badgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 7,
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  badgeText: {
+    fontSize: 12,
+  },
+  stateChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  stateChipText: {
+    fontSize: 12,
+  },
+  heroVisualBlock: {
     borderRadius: 22,
+    padding: 20,
+    minHeight: 180,
+    justifyContent: 'space-between',
+    gap: 20,
+  },
+  heroTextContent: {
+    gap: 6,
+  },
+  heroMainTitle: {
+    fontSize: 24,
+    letterSpacing: -0.4,
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  capsuleActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 20,
+    paddingRight: 6,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  capsuleActionText: {
+    fontSize: 14,
+    letterSpacing: -0.2,
+  },
+  circleArrowBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconGlyph: {
-    fontSize: 20,
-  },
-  controlContainer: {
-    minWidth: 50,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  infoBlock: {
-    gap: 2,
-  },
-  accessoryTitle: {
-    fontSize: 17,
-    letterSpacing: -0.3,
-  },
-  statusLabel: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  footnote: {
-    fontSize: 12,
-    marginTop: 2,
+  arrowIcon: {
+    fontSize: 18,
+    fontWeight: '700',
   },
 });

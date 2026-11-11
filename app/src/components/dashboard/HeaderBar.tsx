@@ -1,5 +1,6 @@
 import {
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -23,9 +24,9 @@ type HeaderBarProps = {
 };
 
 const TABS: { id: DashboardTab; label: string }[] = [
-  { id: 'overview', label: 'Prehľad' },
+  { id: 'overview', label: 'Prehľad & Riadenie' },
   { id: 'measurements', label: 'Merania RTT' },
-  { id: 'events', label: 'Denník' },
+  { id: 'events', label: 'Denník udalostí' },
   { id: 'settings', label: 'Nastavenia' },
 ];
 
@@ -35,106 +36,125 @@ export function HeaderBar({
   status,
   protocol,
   deviceId,
-  desktop,
 }: HeaderBarProps) {
   const { colors, isDark, setPreference } = useMonitorTheme();
 
   const isConnected = status === 'connected';
   const isConnecting = status === 'connecting';
 
-  const statusBg = isConnecting
-    ? colors.warningSoft
-    : isConnected
-    ? colors.successSoft
-    : colors.surfaceElevated;
-
-  const statusColor = isConnecting
-    ? colors.orange
-    : isConnected
-    ? colors.green
-    : colors.textSecondary;
-
   const statusLabel = isConnecting
     ? 'Pripája sa…'
     : isConnected
-    ? 'Pripojené'
-    : 'Odpojené';
+    ? 'Online'
+    : 'Offline';
 
   return (
-    <View style={[styles.headerContainer, { borderBottomColor: colors.line }]}>
-      {/* Top Bar: Title & Status Actions */}
+    <View style={styles.headerContainer}>
+      {/* Top Profile / App Header (Screen 1 style: "Hello, Vanessa" -> "IoT Monitor") */}
       <View style={styles.topRow}>
         <View style={styles.titleColumn}>
-          <View style={styles.deviceRow}>
-            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={[styles.deviceSubtitle, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
-              {deviceId ? deviceId : 'ESP32 IoT Node'} · Wi-Fi
-            </Text>
-          </View>
-          <Text style={[styles.largeTitle, { color: colors.text, fontFamily: fonts.bold }]}>
+          <Text style={[styles.welcomeSub, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
+            {deviceId ? `${deviceId} · Wi-Fi Node` : 'ESP32-WROOM-32 · Wi-Fi Node'}
+          </Text>
+          <Text style={[styles.mainTitle, { color: colors.text, fontFamily: fonts.bold }]}>
             IoT Monitor
           </Text>
         </View>
 
         <View style={styles.topRightActions}>
-          {/* Status Capsule */}
-          <View style={[styles.statusCapsule, { backgroundColor: statusBg }]}>
-            <View style={[styles.microDot, { backgroundColor: statusColor }]} />
-            <Text style={[styles.statusCapsuleText, { color: statusColor, fontFamily: fonts.semibold }]}>
+          {/* Status Capsule Indicator */}
+          <View
+            style={[
+              styles.statusBadge,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.line,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.statusDot,
+                {
+                  backgroundColor: isConnected
+                    ? colors.green
+                    : isConnecting
+                    ? colors.orange
+                    : colors.textTertiary,
+                },
+              ]}
+            />
+            <Text style={[styles.statusText, { color: colors.text, fontFamily: fonts.medium }]}>
               {statusLabel}
             </Text>
           </View>
 
           {/* Theme switch button */}
           <Pressable
+            accessibilityLabel="Prepnúť motív"
             onPress={() => setPreference(isDark ? 'light' : 'dark')}
             style={({ pressed }) => [
-              styles.roundButton,
-              { backgroundColor: colors.surfaceElevated },
+              styles.avatarButton,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.line,
+              },
               pressed && { opacity: 0.7 },
             ]}
           >
-            <Text style={{ fontSize: 13 }}>{isDark ? '☀️' : '🌙'}</Text>
+            <Text style={{ fontSize: 14 }}>{isDark ? '☀️' : '🌙'}</Text>
           </Pressable>
         </View>
       </View>
 
-      {/* Desktop / iPad iOS Segmented Control */}
-      {desktop && (
-        <View style={[styles.segmentedControl, { backgroundColor: colors.surfaceElevated }]}>
-          {TABS.map((item) => {
-            const active = tab === item.id;
-            return (
-              <Pressable
-                key={item.id}
-                onPress={() => onTabChange(item.id)}
+      {/* Pill Navigation Tabs (Screen 3 style: "Tour schedule | Accommodation | Booking details") */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.pillsScroll}
+      >
+        {TABS.map((item) => {
+          const active = tab === item.id;
+          return (
+            <Pressable
+              key={item.id}
+              onPress={() => onTabChange(item.id)}
+              style={({ pressed }) => [
+                styles.pillButton,
+                {
+                  backgroundColor: active
+                    ? isDark
+                      ? '#FFFFFF'
+                      : '#121417'
+                    : isDark
+                    ? colors.surfaceElevated
+                    : '#FFFFFF',
+                  borderColor: active
+                    ? 'transparent'
+                    : colors.line,
+                },
+                pressed && { opacity: 0.85 },
+              ]}
+            >
+              <Text
                 style={[
-                  styles.segmentItem,
-                  active && [
-                    styles.segmentActive,
-                    {
-                      backgroundColor: colors.surface,
-                      shadowColor: '#000000',
-                    },
-                  ],
+                  styles.pillText,
+                  {
+                    color: active
+                      ? isDark
+                        ? '#121417'
+                        : '#FFFFFF'
+                      : colors.textSecondary,
+                    fontFamily: active ? fonts.semibold : fonts.medium,
+                  },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    {
-                      color: active ? colors.text : colors.textSecondary,
-                      fontFamily: active ? fonts.semibold : fonts.medium,
-                    },
-                  ]}
-                >
-                  {item.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
@@ -143,9 +163,8 @@ const styles = StyleSheet.create({
   headerContainer: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 14,
+    paddingBottom: 8,
+    gap: 16,
   },
   topRow: {
     flexDirection: 'row',
@@ -155,70 +174,71 @@ const styles = StyleSheet.create({
   titleColumn: {
     gap: 2,
   },
-  deviceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  welcomeSub: {
+    fontSize: 13,
   },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  deviceSubtitle: {
-    fontSize: 12,
-    letterSpacing: 0.2,
-  },
-  largeTitle: {
-    fontSize: 26,
-    letterSpacing: -0.5,
+  mainTitle: {
+    fontSize: 28,
+    letterSpacing: -0.6,
   },
   topRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
-  statusCapsule: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
     gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  microDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
-  statusCapsuleText: {
+  statusText: {
     fontSize: 12,
   },
-  roundButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  avatarButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    padding: 3,
-    borderRadius: 9,
-    alignSelf: 'flex-start',
-  },
-  segmentItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 7,
-  },
-  segmentActive: {
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  segmentText: {
+  pillsScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  pillButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999, // Plné zaoblenie pill
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  pillText: {
     fontSize: 13,
   },
 });

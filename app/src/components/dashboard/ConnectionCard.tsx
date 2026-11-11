@@ -47,19 +47,27 @@ export function ConnectionCard({
   const activeUrl = protocol === 'HTTP/REST' ? HTTP_URL : WS_URL;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
-      {/* Card Title */}
-      <View style={styles.cardHeader}>
-        <Text style={[styles.cardTitle, { color: colors.text, fontFamily: fonts.semibold }]}>
-          Pripojenie k uzlu
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.line,
+        },
+      ]}
+    >
+      {/* Title & Section Label (Screen 1: "Select your next trip") */}
+      <View style={styles.headerBlock}>
+        <Text style={[styles.sectionHeading, { color: colors.text, fontFamily: fonts.bold }]}>
+          Komunikačný protokol
         </Text>
-        <Text style={[styles.cardSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
-          Výber protokolu a adresa rozhrania
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+          Vyber protokol pre riadenie a zber dát
         </Text>
       </View>
 
-      {/* iOS Segmented Control for Protocol */}
-      <View style={[styles.segmentedControl, { backgroundColor: colors.surfaceElevated }]}>
+      {/* Pill Selector (Screen 1 style: "Asia | Europe | South America") */}
+      <View style={styles.pillRow}>
         {PROTOCOLS.map((p) => {
           const active = protocol === p.id;
           return (
@@ -67,23 +75,31 @@ export function ConnectionCard({
               key={p.id}
               disabled={!isDisconnected}
               onPress={() => onProtocolChange(p.id)}
-              style={[
-                styles.segmentItem,
-                active && [
-                  styles.segmentActive,
-                  {
-                    backgroundColor: colors.surface,
-                    shadowColor: '#000000',
-                  },
-                ],
-                !isDisconnected && !active && { opacity: 0.4 },
+              style={({ pressed }) => [
+                styles.filterPill,
+                {
+                  backgroundColor: active
+                    ? isDark
+                      ? '#FFFFFF'
+                      : '#121417'
+                    : colors.backgroundSecondary,
+                  borderColor: active
+                    ? 'transparent'
+                    : colors.line,
+                  opacity: !isDisconnected && !active ? 0.4 : 1,
+                },
+                pressed && { opacity: 0.8 },
               ]}
             >
               <Text
                 style={[
-                  styles.segmentText,
+                  styles.filterPillText,
                   {
-                    color: active ? colors.text : colors.textSecondary,
+                    color: active
+                      ? isDark
+                        ? '#121417'
+                        : '#FFFFFF'
+                      : colors.textSecondary,
                     fontFamily: active ? fonts.semibold : fonts.medium,
                   },
                 ]}
@@ -94,69 +110,82 @@ export function ConnectionCard({
           );
         })}
 
-        {/* MQTT (Disabled / Coming Soon) */}
-        <View style={[styles.segmentItem, { opacity: 0.45 }]}>
-          <Text style={[styles.segmentText, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
-            MQTT
+        {/* MQTT Pill */}
+        <View
+          style={[
+            styles.filterPill,
+            {
+              backgroundColor: colors.backgroundSecondary,
+              borderColor: colors.line,
+              opacity: 0.45,
+            },
+          ]}
+        >
+          <Text style={[styles.filterPillText, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
+            MQTT (QoS 0/1/2)
           </Text>
         </View>
       </View>
 
-      {/* Grouped Information Row (Apple Inset Style) */}
-      <View style={[styles.insetGroup, { backgroundColor: colors.surfaceElevated }]}>
-        <View style={styles.insetRow}>
-          <Text style={[styles.rowLabel, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
-            Adresa servera
+      {/* Address & Target Card */}
+      <View style={[styles.addressBox, { backgroundColor: colors.backgroundSecondary }]}>
+        <View style={styles.addressLeft}>
+          <Text style={[styles.addressLabel, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
+            Cieľový endpoint servera
           </Text>
-          <Text selectable style={[styles.rowValue, { color: colors.text, fontFamily: fonts.medium }]}>
+          <Text selectable style={[styles.addressValue, { color: colors.text, fontFamily: fonts.semibold }]}>
             {activeUrl}
           </Text>
         </View>
 
-        <View style={[styles.separator, { backgroundColor: colors.line }]} />
-
-        <View style={styles.insetRow}>
-          <Text style={[styles.rowLabel, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
-            Cieľový uzol
-          </Text>
-          <Text style={[styles.rowValue, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
-            {activeUrl.includes('127.0.0.1') ? 'Lokálny simulátor' : 'Hardvér ESP32'}
+        <View style={[styles.targetBadge, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.targetBadgeText, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
+            {activeUrl.includes('127.0.0.1') ? 'Simulátor' : 'ESP32'}
           </Text>
         </View>
       </View>
 
-      {/* Primary Action Button (iOS Style) */}
+      {/* Main Full-width Capsule Action Button (Screen 3 style: "Book a tour") */}
       <Pressable
         accessibilityRole="button"
         disabled={outputBusy}
         onPress={isDisconnected ? onConnect : onDisconnect}
         style={({ pressed }) => [
-          styles.actionButton,
+          styles.mainCapsuleButton,
           {
             backgroundColor: isConnected
               ? isDark
-                ? '#2C2C2E'
-                : '#E5E5EA'
-              : colors.tint,
+                ? '#242A35'
+                : '#E2E6EC'
+              : isDark
+              ? '#FFFFFF'
+              : '#121417',
             opacity: outputBusy ? 0.6 : 1,
           },
           pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] },
         ]}
       >
         {isConnecting ? (
-          <View style={styles.buttonInner}>
-            <ActivityIndicator size="small" color="#FFFFFF" />
-            <Text style={[styles.actionButtonText, { color: '#FFFFFF', fontFamily: fonts.semibold }]}>
-              Pripája sa… (Zrušiť)
+          <View style={styles.buttonInnerRow}>
+            <ActivityIndicator size="small" color={isDark ? '#121417' : '#FFFFFF'} />
+            <Text
+              style={[
+                styles.mainButtonText,
+                { color: isDark ? '#121417' : '#FFFFFF', fontFamily: fonts.semibold },
+              ]}
+            >
+              Pripája sa k uzlu… (Zrušiť)
             </Text>
           </View>
         ) : (
           <Text
             style={[
-              styles.actionButtonText,
+              styles.mainButtonText,
               {
                 color: isConnected
                   ? colors.red
+                  : isDark
+                  ? '#121417'
                   : '#FFFFFF',
                 fontFamily: fonts.semibold,
               },
@@ -169,7 +198,7 @@ export function ConnectionCard({
 
       {/* Error Callout */}
       {error && (
-        <View style={[styles.errorCallout, { backgroundColor: colors.errorSoft }]}>
+        <View style={[styles.errorBox, { backgroundColor: colors.errorSoft }]}>
           <Text style={{ fontSize: 14 }}>⚠️</Text>
           <Text style={[styles.errorText, { color: colors.red, fontFamily: fonts.regular }]}>
             {error}
@@ -182,84 +211,88 @@ export function ConnectionCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 26,
     borderWidth: 1,
     padding: 18,
-    gap: 14,
-  },
-  cardHeader: {
-    gap: 2,
-  },
-  cardTitle: {
-    fontSize: 17,
-    letterSpacing: -0.3,
-  },
-  cardSubtitle: {
-    fontSize: 13,
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    padding: 3,
-    borderRadius: 10,
-  },
-  segmentItem: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-  },
-  segmentActive: {
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
     elevation: 2,
   },
-  segmentText: {
+  headerBlock: {
+    gap: 3,
+  },
+  sectionHeading: {
+    fontSize: 18,
+    letterSpacing: -0.3,
+  },
+  sectionSubtitle: {
     fontSize: 13,
   },
-  insetGroup: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    paddingHorizontal: 14,
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
   },
-  insetRow: {
+  filterPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 999, // Plné zaoblenie pill
+    borderWidth: 1,
+  },
+  filterPillText: {
+    fontSize: 13,
+  },
+  addressBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    padding: 14,
+    borderRadius: 18,
   },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    width: '100%',
+  addressLeft: {
+    gap: 3,
+    flex: 1,
   },
-  rowLabel: {
+  addressLabel: {
+    fontSize: 11,
+  },
+  addressValue: {
     fontSize: 14,
+    letterSpacing: -0.2,
   },
-  rowValue: {
-    fontSize: 14,
-  },
-  actionButton: {
-    paddingVertical: 13,
+  targetBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
+  },
+  targetBadgeText: {
+    fontSize: 11,
+  },
+  mainCapsuleButton: {
+    height: 52,
+    borderRadius: 999, // Plné zaoblenie
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonInner: {
+  buttonInnerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  actionButtonText: {
+  mainButtonText: {
     fontSize: 15,
     letterSpacing: -0.2,
   },
-  errorCallout: {
+  errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    borderRadius: 12,
-    gap: 10,
+    borderRadius: 14,
+    gap: 8,
   },
   errorText: {
     fontSize: 13,

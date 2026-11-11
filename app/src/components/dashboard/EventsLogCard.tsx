@@ -29,7 +29,7 @@ export function EventsLogCard({
   onEventFilterChange,
   onClearEvents,
 }: EventsLogCardProps) {
-  const { colors } = useMonitorTheme();
+  const { colors, isDark } = useMonitorTheme();
 
   const filtered = events.filter((e) => {
     if (eventFilter === 'all') return true;
@@ -46,15 +46,23 @@ export function EventsLogCard({
   };
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.line,
+        },
+      ]}
+    >
       {/* Header */}
       <View style={styles.cardHeader}>
         <View>
-          <Text style={[styles.cardTitle, { color: colors.text, fontFamily: fonts.semibold }]}>
+          <Text style={[styles.sectionHeading, { color: colors.text, fontFamily: fonts.bold }]}>
             Denník komunikácie
           </Text>
-          <Text style={[styles.cardSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
-            Záznam sieťových stavov a udalostí
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+            Sieťové udalosti a záznamy protokolu
           </Text>
         </View>
 
@@ -62,44 +70,53 @@ export function EventsLogCard({
           <Pressable
             onPress={onClearEvents}
             style={({ pressed }) => [
-              styles.textBtn,
-              pressed && { opacity: 0.6 },
+              styles.clearPill,
+              { backgroundColor: colors.backgroundSecondary },
+              pressed && { opacity: 0.7 },
             ]}
           >
-            <Text style={[styles.textBtnLabel, { color: colors.red, fontFamily: fonts.medium }]}>
+            <Text style={[styles.clearPillText, { color: colors.red, fontFamily: fonts.medium }]}>
               Zmazať
             </Text>
           </Pressable>
         )}
       </View>
 
-      {/* iOS Segmented Filter */}
-      <View style={[styles.segmentedControl, { backgroundColor: colors.surfaceElevated }]}>
+      {/* Pill Filters */}
+      <View style={styles.pillsRow}>
         {(['all', 'command', 'error'] as const).map((filter) => {
           const active = eventFilter === filter;
           return (
             <Pressable
               key={filter}
               onPress={() => onEventFilterChange(filter)}
-              style={[
-                styles.segmentItem,
-                active && [
-                  styles.segmentActive,
-                  { backgroundColor: colors.surface },
-                ],
+              style={({ pressed }) => [
+                styles.filterPill,
+                {
+                  backgroundColor: active
+                    ? isDark
+                      ? '#FFFFFF'
+                      : '#121417'
+                    : colors.backgroundSecondary,
+                },
+                pressed && { opacity: 0.8 },
               ]}
             >
               <Text
                 style={[
-                  styles.segmentText,
+                  styles.filterPillText,
                   {
-                    color: active ? colors.text : colors.textSecondary,
+                    color: active
+                      ? isDark
+                        ? '#121417'
+                        : '#FFFFFF'
+                      : colors.textSecondary,
                     fontFamily: active ? fonts.semibold : fonts.medium,
                   },
                 ]}
               >
                 {filter === 'all'
-                  ? 'Všetky'
+                  ? 'Všetky udalosti'
                   : filter === 'command'
                   ? 'Príkazy'
                   : 'Chyby'}
@@ -109,27 +126,30 @@ export function EventsLogCard({
         })}
       </View>
 
-      {/* Inset Grouped Events List */}
-      <View style={[styles.insetGroup, { backgroundColor: colors.surfaceElevated }]}>
+      {/* Event List */}
+      <View style={[styles.listWrapper, { backgroundColor: colors.backgroundSecondary }]}>
         {filtered.length === 0 ? (
           <Text style={[styles.emptyText, { color: colors.textTertiary, fontFamily: fonts.regular }]}>
             Žiadne udalosti pre zvolený filter.
           </Text>
         ) : (
-          <ScrollView style={styles.scrollList} nestedScrollEnabled>
+          <ScrollView style={styles.scrollContainer} nestedScrollEnabled>
             {filtered.map((item, index) => (
-              <View key={item.id}>
-                {index > 0 && <View style={[styles.separator, { backgroundColor: colors.line }]} />}
-                <View style={styles.eventRow}>
-                  <Text style={{ fontSize: 13 }}>{kindIcons[item.kind]}</Text>
-                  <View style={styles.eventContent}>
-                    <Text style={[styles.eventMessage, { color: colors.text, fontFamily: fonts.regular }]}>
-                      {item.message}
-                    </Text>
-                    <Text style={[styles.eventTime, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
-                      {formatTime(item.time)}
-                    </Text>
-                  </View>
+              <View
+                key={item.id}
+                style={[
+                  styles.eventRow,
+                  index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
+                ]}
+              >
+                <Text style={{ fontSize: 13 }}>{kindIcons[item.kind]}</Text>
+                <View style={styles.eventTextGroup}>
+                  <Text style={[styles.eventMessage, { color: colors.text, fontFamily: fonts.medium }]}>
+                    {item.message}
+                  </Text>
+                  <Text style={[styles.eventTime, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+                    {formatTime(item.time)}
+                  </Text>
                 </View>
               </View>
             ))}
@@ -142,71 +162,68 @@ export function EventsLogCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 26,
     borderWidth: 1,
     padding: 18,
-    gap: 14,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cardTitle: {
-    fontSize: 17,
+  sectionHeading: {
+    fontSize: 18,
     letterSpacing: -0.3,
   },
-  cardSubtitle: {
+  sectionSubtitle: {
     fontSize: 13,
   },
-  textBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  textBtnLabel: {
-    fontSize: 13,
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    padding: 3,
-    borderRadius: 9,
-  },
-  segmentItem: {
-    flex: 1,
+  clearPill: {
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 7,
+    borderRadius: 999,
   },
-  segmentActive: {
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-    elevation: 2,
+  clearPillText: {
+    fontSize: 12,
   },
-  segmentText: {
-    fontSize: 13,
+  pillsRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  insetGroup: {
-    borderRadius: 14,
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  filterPillText: {
+    fontSize: 12,
+  },
+  listWrapper: {
+    borderRadius: 20,
+    maxHeight: 250,
     overflow: 'hidden',
-    maxHeight: 240,
   },
   emptyText: {
     padding: 20,
     fontSize: 13,
     textAlign: 'center',
   },
-  scrollList: {
-    paddingHorizontal: 14,
+  scrollContainer: {
+    paddingHorizontal: 16,
   },
   eventRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 10,
-    gap: 10,
+    paddingVertical: 12,
+    gap: 12,
   },
-  eventContent: {
+  eventTextGroup: {
     flex: 1,
     gap: 2,
   },
@@ -216,9 +233,5 @@ const styles = StyleSheet.create({
   },
   eventTime: {
     fontSize: 11,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    width: '100%',
   },
 });

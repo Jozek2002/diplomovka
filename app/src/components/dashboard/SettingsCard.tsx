@@ -19,9 +19,9 @@ type SettingsCardProps = {
 };
 
 const THEMES: { id: ThemePreference; label: string }[] = [
-  { id: 'dark', label: 'Tmavý' },
-  { id: 'light', label: 'Svetlý' },
-  { id: 'system', label: 'Systém' },
+  { id: 'light', label: 'Svetlý (Light)' },
+  { id: 'dark', label: 'Tmavý (Dark)' },
+  { id: 'system', label: 'Systémový' },
 ];
 
 export function SettingsCard({
@@ -30,46 +30,62 @@ export function SettingsCard({
   onClearHistory,
   onClearEvents,
 }: SettingsCardProps) {
-  const { colors, preference, setPreference } = useMonitorTheme();
+  const { colors, preference, setPreference, isDark } = useMonitorTheme();
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.line,
+        },
+      ]}
+    >
       {/* Header */}
       <View style={styles.cardHeader}>
-        <Text style={[styles.cardTitle, { color: colors.text, fontFamily: fonts.semibold }]}>
-          Nastavenia
+        <Text style={[styles.sectionHeading, { color: colors.text, fontFamily: fonts.bold }]}>
+          Nastavenia aplikácie
         </Text>
-        <Text style={[styles.cardSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
-          Vzhľad a správa lokálnych dát
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+          Prispôsobenie vzhľadu a správa lokálnych dát
         </Text>
       </View>
 
-      {/* Section: Appearance */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
-          MOTÍV
+      {/* Theme Choice Pills */}
+      <View style={styles.sectionBlock}>
+        <Text style={[styles.blockTitle, { color: colors.text, fontFamily: fonts.semibold }]}>
+          Farebný motív rozhrania
         </Text>
 
-        <View style={[styles.segmentedControl, { backgroundColor: colors.surfaceElevated }]}>
+        <View style={styles.pillsRow}>
           {THEMES.map((item) => {
             const active = preference === item.id;
             return (
               <Pressable
                 key={item.id}
                 onPress={() => setPreference(item.id)}
-                style={[
-                  styles.segmentItem,
-                  active && [
-                    styles.segmentActive,
-                    { backgroundColor: colors.surface },
-                  ],
+                style={({ pressed }) => [
+                  styles.themePill,
+                  {
+                    backgroundColor: active
+                      ? isDark
+                        ? '#FFFFFF'
+                        : '#121417'
+                      : colors.backgroundSecondary,
+                  },
+                  pressed && { opacity: 0.8 },
                 ]}
               >
                 <Text
                   style={[
-                    styles.segmentText,
+                    styles.themePillText,
                     {
-                      color: active ? colors.text : colors.textSecondary,
+                      color: active
+                        ? isDark
+                          ? '#121417'
+                          : '#FFFFFF'
+                        : colors.textSecondary,
                       fontFamily: active ? fonts.semibold : fonts.medium,
                     },
                   ]}
@@ -82,48 +98,51 @@ export function SettingsCard({
         </View>
       </View>
 
-      {/* Section: Session Data (Apple Inset Grouped) */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
-          LOKÁLNE ÚDAJE V PAMÄTI
+      {/* Memory Status Box */}
+      <View style={styles.sectionBlock}>
+        <Text style={[styles.blockTitle, { color: colors.text, fontFamily: fonts.semibold }]}>
+          Stav dočasnej pamäte relácie
         </Text>
 
-        <View style={[styles.insetGroup, { backgroundColor: colors.surfaceElevated }]}>
-          <View style={styles.insetRow}>
-            <Text style={[styles.rowLabel, { color: colors.text, fontFamily: fonts.regular }]}>
+        <View style={[styles.memoryBox, { backgroundColor: colors.backgroundSecondary }]}>
+          <View style={styles.memoryRow}>
+            <Text style={[styles.memoryLabel, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
               Vzorky telemetrie
             </Text>
-            <Text style={[styles.rowValue, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
-              {sampleCount} vzoriek
+            <Text style={[styles.memoryValue, { color: colors.text, fontFamily: fonts.semibold }]}>
+              {sampleCount} záznamov
             </Text>
           </View>
 
-          <View style={[styles.separator, { backgroundColor: colors.line }]} />
+          <View style={[styles.divider, { backgroundColor: colors.line }]} />
 
-          <View style={styles.insetRow}>
-            <Text style={[styles.rowLabel, { color: colors.text, fontFamily: fonts.regular }]}>
-              Udalosti denníka
+          <View style={styles.memoryRow}>
+            <Text style={[styles.memoryLabel, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+              Udalosti v denníku
             </Text>
-            <Text style={[styles.rowValue, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+            <Text style={[styles.memoryValue, { color: colors.text, fontFamily: fonts.semibold }]}>
               {eventCount} záznamov
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Section: Actions */}
-      <View style={styles.actionsBlock}>
+      {/* Destructive Clear Actions */}
+      <View style={styles.actionsRow}>
         <Pressable
           disabled={sampleCount === 0}
           onPress={onClearHistory}
           style={({ pressed }) => [
-            styles.actionRow,
-            { backgroundColor: colors.surfaceElevated, opacity: sampleCount === 0 ? 0.35 : 1 },
+            styles.actionPillButton,
+            {
+              backgroundColor: colors.backgroundSecondary,
+              opacity: sampleCount === 0 ? 0.4 : 1,
+            },
             pressed && { opacity: 0.7 },
           ]}
         >
-          <Text style={[styles.actionText, { color: colors.red, fontFamily: fonts.medium }]}>
-            Vymazať históriu telemetrie
+          <Text style={[styles.actionBtnText, { color: colors.red, fontFamily: fonts.medium }]}>
+            Vymazať telemetriu
           </Text>
         </Pressable>
 
@@ -131,18 +150,21 @@ export function SettingsCard({
           disabled={eventCount === 0}
           onPress={onClearEvents}
           style={({ pressed }) => [
-            styles.actionRow,
-            { backgroundColor: colors.surfaceElevated, opacity: eventCount === 0 ? 0.35 : 1 },
+            styles.actionPillButton,
+            {
+              backgroundColor: colors.backgroundSecondary,
+              opacity: eventCount === 0 ? 0.4 : 1,
+            },
             pressed && { opacity: 0.7 },
           ]}
         >
-          <Text style={[styles.actionText, { color: colors.red, fontFamily: fonts.medium }]}>
-            Vymazať denník udalostí
+          <Text style={[styles.actionBtnText, { color: colors.red, fontFamily: fonts.medium }]}>
+            Vymazať denník
           </Text>
         </Pressable>
       </View>
 
-      {/* System Footer Info */}
+      {/* Footer Info */}
       <Text style={[styles.footerText, { color: colors.textTertiary, fontFamily: fonts.regular }]}>
         Komparatívna analýza aplikačných protokolov pre riadenie a telemetriu vo Wi-Fi IoT sieťach · ESP32-WROOM-32
       </Text>
@@ -152,83 +174,79 @@ export function SettingsCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 26,
     borderWidth: 1,
     padding: 18,
-    gap: 16,
+    gap: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    elevation: 2,
   },
   cardHeader: {
     gap: 2,
   },
-  cardTitle: {
-    fontSize: 17,
+  sectionHeading: {
+    fontSize: 18,
     letterSpacing: -0.3,
   },
-  cardSubtitle: {
+  sectionSubtitle: {
     fontSize: 13,
   },
-  section: {
-    gap: 6,
+  sectionBlock: {
+    gap: 8,
   },
-  sectionTitle: {
-    fontSize: 11,
-    letterSpacing: 0.4,
-    paddingLeft: 4,
+  blockTitle: {
+    fontSize: 14,
+    letterSpacing: -0.2,
   },
-  segmentedControl: {
+  pillsRow: {
     flexDirection: 'row',
-    padding: 3,
-    borderRadius: 10,
+    gap: 8,
+    flexWrap: 'wrap',
   },
-  segmentItem: {
-    flex: 1,
-    paddingVertical: 7,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
+  themePill: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 999,
   },
-  segmentActive: {
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  segmentText: {
+  themePillText: {
     fontSize: 13,
   },
-  insetGroup: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    paddingHorizontal: 14,
+  memoryBox: {
+    padding: 14,
+    borderRadius: 18,
+    gap: 10,
   },
-  insetRow: {
+  memoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
   },
-  separator: {
+  memoryLabel: {
+    fontSize: 13,
+  },
+  memoryValue: {
+    fontSize: 13,
+  },
+  divider: {
     height: StyleSheet.hairlineWidth,
     width: '100%',
   },
-  rowLabel: {
-    fontSize: 14,
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
-  rowValue: {
-    fontSize: 14,
-  },
-  actionsBlock: {
-    gap: 8,
-    paddingTop: 4,
-  },
-  actionRow: {
+  actionPillButton: {
+    flex: 1,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionText: {
-    fontSize: 14,
+  actionBtnText: {
+    fontSize: 13,
   },
   footerText: {
     fontSize: 11,
