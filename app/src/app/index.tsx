@@ -56,9 +56,25 @@ function errorMessage(error: unknown): string {
     return 'Server neodpovedal do 5 sekúnd.';
   }
 
-  return error instanceof Error
-    ? error.message
-    : 'Neznáma chyba komunikácie.';
+  if (error instanceof Error) {
+    const networkMessages = [
+      'Failed to fetch',
+      'Network request failed',
+      'Load failed',
+    ];
+
+    if (networkMessages.includes(error.message)) {
+      return (
+        'Nepodarilo sa spojiť so zariadením alebo simulátorom. ' +
+        'Skontroluj, či je server spustený, zariadenie dostupné ' +
+        'a cieľová adresa správna.'
+      );
+    }
+
+    return error.message;
+  }
+
+  return 'Neznáma chyba komunikácie.';
 }
 
 export default function HomeScreen() {
@@ -256,34 +272,36 @@ export default function HomeScreen() {
   }
 
   async function connectHttp() {
-    const currentSession = prepareConnection();
+  const currentSession = prepareConnection();
 
-    try {
-      const [data, output] = await Promise.all([
-        requestJson<Telemetry>('/telemetry'),
-        requestJson<OutputState>('/output'),
-      ]);
+  try {
+    const [data, output] = await Promise.all([
+      requestJson<Telemetry>('/telemetry'),
+      requestJson<OutputState>('/output'),
+    ]);
 
-      if (session.current !== currentSession) {
-        return;
-      }
-
-      setTelemetry(data);
-      setOutputEnabled(output.outputEnabled);
-      setStatus('connected');
-
-      addEvent(
-        'success',
-        'HTTP/REST pripojenie pripravené.'
-      );
-    } catch (requestError) {
-      if (session.current === currentSession) {
-        stopConnection(
-          errorMessage(requestError)
-        );
-      }
+    if (session.current !== currentSession) {
+      return;
     }
+
+    setTelemetry(data);
+    setOutputEnabled(output.outputEnabled);
+    setStatus('connected');
+
+    addEvent(
+      'success',
+      'HTTP/REST pripojenie pripravené.'
+    );
+  } catch (requestError) {
+    if (session.current !== currentSession) {
+      return;
+    }
+
+    stopConnection(
+      errorMessage(requestError)
+    );
   }
+}
 
   function connectWebSocket() {
     const currentSession = prepareConnection();

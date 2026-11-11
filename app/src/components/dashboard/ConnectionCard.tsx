@@ -199,7 +199,6 @@ export function ConnectionCard({
       {/* Error Callout */}
       {error && (
         <View style={[styles.errorBox, { backgroundColor: colors.errorSoft }]}>
-          <Text style={{ fontSize: 14 }}>⚠️</Text>
           <Text style={[styles.errorText, { color: colors.red, fontFamily: fonts.regular }]}>
             {error}
           </Text>
