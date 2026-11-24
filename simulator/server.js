@@ -7,6 +7,7 @@ const app = express();
 
 const HOST = '127.0.0.1';
 const PORT = 3000;
+const suppressWsAck = process.env.SIM_WS_NO_ACK === '1';
 
 const allowedOrigins = new Set([
   'http://localhost:8081',
@@ -226,11 +227,15 @@ wss.on('connection', (socket) => {
 
   const result = setOutput(message.outputEnabled, 'WS');
 
-  sendJson(socket, {
-    type: 'outputAck',
-    requestId: message.requestId,
-    data: result,
-  });
+  if (suppressWsAck) {
+    console.log('[WS TEST] outputAck neodoslany: ' + message.requestId);
+  } else {
+    sendJson(socket, {
+      type: 'outputAck',
+      requestId: message.requestId,
+      data: result,
+    });
+  }
 
   return;
 }
